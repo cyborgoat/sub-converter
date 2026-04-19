@@ -1,3 +1,6 @@
+# Requires: Settings → Pages → Build and deployment → Source: GitHub Actions
+# https://docs.github.com/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+
 name: Deploy to GitHub Pages
 
 on:
@@ -19,30 +22,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "25"
           cache: npm
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
 
       - name: Install
         run: npm ci
 
-      - name: Configure converter origin for build
+      - name: Configure build environment
         run: |
           set -e
+          BASE_PATH="${{ steps.pages.outputs.base_path }}"
+          if [ -n "$BASE_PATH" ]; then
+            echo "VITE_BASE=${BASE_PATH}/" >> "$GITHUB_ENV"
+          else
+            echo "VITE_BASE=/" >> "$GITHUB_ENV"
+          fi
+
           if [ -n "${VITE_CONVERTER_ORIGIN_VAR}" ]; then
             echo "VITE_CONVERTER_ORIGIN=${VITE_CONVERTER_ORIGIN_VAR}" >> "$GITHUB_ENV"
           else
-            OWNER="${{ github.repository_owner }}"
-            REPO="${{ github.event.repository.name }}"
-            if [ "$REPO" = "${OWNER}.github.io" ]; then
-              echo "VITE_CONVERTER_ORIGIN=https://${OWNER}.github.io" >> "$GITHUB_ENV"
-            else
-              echo "VITE_CONVERTER_ORIGIN=https://${OWNER}.github.io/${REPO}" >> "$GITHUB_ENV"
-            fi
+            echo "VITE_CONVERTER_ORIGIN=${{ steps.pages.outputs.base_url }}" >> "$GITHUB_ENV"
           fi
         env:
           VITE_CONVERTER_ORIGIN_VAR: ${{ vars.VITE_CONVERTER_ORIGIN }}
@@ -51,7 +59,7 @@ jobs:
         run: npm run build
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -64,4 +72,4 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
