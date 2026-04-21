@@ -1,14 +1,14 @@
 # sub-converter
 
-Convert proxy subscriptions into Clash-compatible YAML with a TypeScript Cloudflare Worker and a small Vite web UI.
+Convert proxy subscriptions into compact Clash-compatible YAML with a TypeScript Cloudflare Worker and a small Vite web UI.
 
 Supported protocols: `ss`, `vmess`, `ssr`, `trojan`, `vless`, `socks`, `http`, `https`
 
 ## Projects
 
-- `worker/`: Cloudflare Worker that fetches a subscription, decodes it, converts entries to Clash proxies, expands the shared policy template, optionally decorates proxy names with country flags, and returns `clash.yaml`
-- `web/`: React app that builds a request URL for the worker and uses the local worker service automatically in dev mode
-- `clash_policy_template.yaml`: canonical policy template used to build `proxy-groups` and `rules`
+- `worker/`: Cloudflare Worker that fetches a subscription, decodes it, converts entries to Clash proxies, applies the compact policy template, optionally decorates proxy names with country flags, and returns a downloadable Clash profile named `clash-profile`
+- `web/`: React app that builds the worker request URL and uses the local worker service automatically in dev mode
+- `clash_policy_template.yaml`: canonical compact policy template used to build `proxy-groups` and `rules`
 
 ## Worker
 
@@ -27,12 +27,32 @@ Request shape:
 GET /?url=<percent-encoded-subscription-url>[&decorate=false]
 ```
 
-The response is a Clash YAML file with:
+The response is a Clash YAML profile with:
 
 - converted `proxies`
-- policy-template-based `proxy-groups`
-- policy-template `rules`
+- compact `proxy-groups`
+- compact routing `rules`
 - `subscription-info` metadata including source type, source encoding, and node count
+- `Content-Disposition: attachment; filename=clash-profile`
+
+## Compact Profile Shape
+
+The current template is intentionally trimmed for speed and smaller output. It keeps only:
+
+- `PROXY`
+- `AUTO`
+- `DIRECT_GROUP`
+- `REJECT_GROUP`
+- `FINAL`
+
+The rule set is also compact and focuses on:
+
+- private and local network direct rules
+- local router and LAN hostnames
+- `GEOIP,CN,DIRECT_GROUP`
+- `MATCH,FINAL`
+
+This is a deliberate tradeoff: less routing detail and fewer manual selector groups in exchange for much faster generation on large subscriptions.
 
 ## Web UI
 
@@ -50,15 +70,16 @@ Worker endpoint resolution order:
 
 ## Policy Template
 
-`clash_policy_template.yaml` is JSON-compatible YAML. The placeholder `__ALL_PROXIES__` is expanded into the converted proxy names when building the final Clash config.
+`clash_policy_template.yaml` is JSON-compatible YAML. Only the `PROXY` and `AUTO` groups expand the `__ALL_PROXIES__` placeholder into converted proxy names.
 
 The worker bundles a generated copy of this template at `worker/src/config/policy-template.ts` so Cloudflare Workers do not depend on filesystem reads at runtime.
 
 ## Notes
 
-- The worker is the source of truth for conversion now; the old Python package has been removed.
+- The worker is the source of truth for conversion; the old Python package has been removed.
 - Name decoration performs geo-IP lookups and can be disabled with `decorate=false`.
-- The web build currently requires a Node version compatible with the installed Vite release.
+- The worker has been optimized to reduce per-request object churn and YAML output size.
+- If `npm run build` for `web` resolves the wrong Node version on your machine, run Vite with your intended Node runtime explicitly.
 
 ## License
 

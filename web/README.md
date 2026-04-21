@@ -4,7 +4,7 @@ A small Vite + React frontend for the Cloudflare Worker. It exists to do one job
 
 1. accept a subscription URL from the user
 2. URL-encode it safely
-3. output the final worker URL for downloading the returned `clash.yaml`
+3. output the final worker URL for downloading the returned compact Clash profile
 
 ## Local development
 

@@ -1,12 +1,12 @@
 # Sub-Converter Cloudflare Worker
 
-A Cloudflare Workers-based service that converts proxy subscription URLs to Clash-compatible YAML configuration files.
+A Cloudflare Workers-based service that converts proxy subscription URLs to compact Clash-compatible YAML profiles.
 
 ## Features
 
 - ✅ Supports multiple proxy protocols: SS, VMess, SSR, Trojan, VLESS, SOCKS5, HTTP/HTTPS
 - ✅ Automatic Base64 decoding of subscription data
-- ✅ Converts to Clash YAML format using the shared policy template
+- ✅ Converts to Clash YAML format using a compact shared policy template
 - ✅ Optional country flag emoji decoration for proxy names (geolocation lookup)
 - ✅ Graceful error handling and detailed error messages
 - ✅ Serverless deployment on Cloudflare Workers (free tier available)
@@ -51,12 +51,12 @@ This starts a local Cloudflare Workers environment at `http://127.0.0.1:8787`.
 
 Convert a subscription URL to Clash YAML:
 ```bash
-curl "http://127.0.0.1:8787/?url=https://example.com/subscription" -o clash.yaml
+curl "http://127.0.0.1:8787/?url=https://example.com/subscription" -o clash-profile.yaml
 ```
 
 Disable country flag decoration:
 ```bash
-curl "http://127.0.0.1:8787/?url=https://example.com/subscription&decorate=false" -o clash.yaml
+curl "http://127.0.0.1:8787/?url=https://example.com/subscription&decorate=false" -o clash-profile.yaml
 ```
 
 ## Deployment
@@ -110,8 +110,8 @@ The `url` query parameter should be percent-encoded by the client. The new `web/
 
 Returns a Clash-compatible YAML configuration file with:
 - Proxy list
-- Policy-template proxy groups
-- Policy-template routing rules
+- Compact proxy groups
+- Compact routing rules
 - Subscription metadata
 
 ### Examples
@@ -120,13 +120,13 @@ Returns a Clash-compatible YAML configuration file with:
 ```bash
 curl "https://sub-converter-worker.yourname.workers.dev/?url=https%3A%2F%2Fexample.com%2Fsubscription" \
   -H "Accept: application/yaml" \
-  -o clash.yaml
+  -o clash-profile.yaml
 ```
 
 **Without decoration:**
 ```bash
 curl "https://sub-converter-worker.yourname.workers.dev/?url=https%3A%2F%2Fexample.com%2Fsubscription&decorate=false" \
-  -o clash.yaml
+  -o clash-profile.yaml
 ```
 
 ## Error Handling
@@ -154,9 +154,9 @@ All errors include descriptive messages for debugging.
 3. Parses individual proxy entries (protocol-specific)
 4. Converts to Clash proxy format
 5. Optionally decorates proxy names with country flags (via ipwho.is API)
-6. Expands `__ALL_PROXIES__` inside the shared policy template
-7. Renders complete Clash YAML configuration
-8. Returns with appropriate YAML content-type headers
+6. Expands `__ALL_PROXIES__` only inside `PROXY` and `AUTO`
+7. Renders compact Clash YAML configuration
+8. Returns with YAML content type and filename `clash-profile`
 
 ## Geolocation Decoration
 
@@ -166,6 +166,18 @@ When `decorate=true` (default), the worker looks up each proxy server's IP to de
 - Disabled: Pass `&decorate=false` to skip
 
 **Note:** Geolocation lookups add latency. If speed is critical, disable with `&decorate=false`.
+
+## Compact Template
+
+The worker now uses a deliberately compact template for better performance on large subscriptions. It keeps only:
+
+- `PROXY`
+- `AUTO`
+- `DIRECT_GROUP`
+- `REJECT_GROUP`
+- `FINAL`
+
+The rule set is also intentionally minimal and focuses on private/local traffic plus a final fallback route.
 
 ## Architecture
 

@@ -41,7 +41,7 @@ npm run dev
 
 Then test in another terminal:
 ```bash
-curl "http://localhost:8787/?url=<test-subscription-url>" -o test.yaml
+curl "http://127.0.0.1:8787/?url=<test-subscription-url>" -o clash-profile.yaml
 ```
 
 - [ ] Server starts without errors
@@ -76,10 +76,10 @@ Test your deployed worker:
 
 ```bash
 curl "https://sub-converter-worker.<your-account>.workers.dev/?url=<subscription-url>" \
-  -o clash.yaml
+  -o clash-profile.yaml
 
 # Verify YAML is valid
-head -20 clash.yaml
+head -20 clash-profile.yaml
 ```
 
 - [ ] Worker responds with YAML
@@ -91,7 +91,7 @@ head -20 clash.yaml
 
 ```bash
 curl "https://sub-converter-worker.<your-account>.workers.dev/?url=<subscription-url>&decorate=false" \
-  -o clash.yaml
+  -o clash-profile.yaml
 ```
 
 - [ ] Works without geolocation lookups
@@ -122,7 +122,7 @@ npm run deploy -- --env production
 ### 3. Test Custom Domain
 
 ```bash
-curl "https://sub.example.com/?url=<subscription-url>" -o clash.yaml
+curl "https://sub.example.com/?url=<subscription-url>" -o clash-profile.yaml
 ```
 
 - [ ] Custom domain endpoint works
@@ -142,7 +142,7 @@ In your Clash client:
 - [ ] Profile updates successfully
 - [ ] Proxies are recognized
 - [ ] Speed test group works
-- [ ] Rules are applied
+- [ ] Compact rules are applied
 
 ## Monitoring
 
@@ -167,9 +167,9 @@ Visit: https://dash.cloudflare.com → Workers → Your Worker
 ## Performance Benchmarks
 
 Expected response times:
-- Without decoration: < 2 seconds
-- With decoration: 3-5 seconds (includes geo-IP lookups)
-- Large subscriptions (100+ proxies): < 8 seconds
+- Without decoration: lower than the old full-template build
+- With decoration: higher because of geo-IP lookups
+- Large subscriptions: improved by the compact template and reduced YAML size
 
 Test and record:
 - [ ] Response time without decoration: _____ ms

@@ -50,10 +50,10 @@ npm run build
 npm run dev
 ```
 
-Then visit: `http://localhost:8787/?url=<subscription_url>`
+Then visit: `http://127.0.0.1:8787/?url=<subscription_url>`
 
 If the subscription URL already contains its own query string, percent-encoding it is safest, for example:
-`http://localhost:8787/?url=https%3A%2F%2Fexample.com%2Fsub%3Fservice%3D123%26id%3Dabc`
+`http://127.0.0.1:8787/?url=https%3A%2F%2Fexample.com%2Fsub%3Fservice%3D123%26id%3Dabc`
 
 ### 4. Deploy to Cloudflare Workers
 ```bash
@@ -68,13 +68,13 @@ After deployment, your worker will be live at:
 ### Convert subscription to Clash YAML
 ```bash
 curl "https://sub-converter-worker.yourname.workers.dev/?url=https://example.com/subscription" \
-  -o clash.yaml
+  -o clash-profile.yaml
 ```
 
 ### Without country flag decoration
 ```bash
 curl "https://sub-converter-worker.yourname.workers.dev/?url=https://example.com/subscription&decorate=false" \
-  -o clash.yaml
+  -o clash-profile.yaml
 ```
 
 ### Using with Clash client
@@ -99,9 +99,9 @@ curl "https://sub-converter-worker.yourname.workers.dev/?url=https://example.com
 - Graceful error handling for invalid entries
 
 ✅ **Clash Integration:**
-- Full YAML configuration with proxy groups
+- Compact YAML configuration with core proxy groups
 - Automatic speed test group (AUTO)
-- Default routing rules
+- Minimal routing rules for speed
 - Proxy name management
 
 ✅ **Optional Decorations:**
@@ -164,7 +164,7 @@ The worker uses:
 - **Native JavaScript** Base64 codec (atob/btoa)
 - **Cloudflare Workers runtime** (V8 engine)
 
-All parsing logic is ported from the Python sub-converter to TypeScript for serverless execution.
+All parsing logic is implemented in TypeScript for serverless execution.
 
 ## License & Credits
 
