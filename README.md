@@ -1,128 +1,141 @@
-# Sub Converter
+# sub-converter
 
-## Decode A Subscription To Clash YAML
+Convert proxy subscriptions into Clash-compatible YAML. Zero external dependencies — pure Python stdlib.
 
-This repo contains a small dependency-free Python script that:
-
-- fetches a subscription URL
-- decodes Base64 or plain-text subscription payloads
-- parses common proxy node URI formats
-- merges a pre-generated policy template into the output
-- writes a Clash-compatible YAML file with `proxies`, translated `proxy-groups`, and translated `rules`
-- can decorate proxy names with country flag emojis after geo-IP lookup
+**Supports:** `ss` · `vmess` · `ssr` · `trojan` · `vless` · `socks` · `http/https`
 
 ## Setup
 
-Create `.env` from `.env.example` and configure either a URL or Base64-encoded subscription source:
+Requires Python 3.9+. No packages to install.
 
 ```bash
 cp .env.example .env
-```
-
-Example `.env`:
-
-```bash
-SUBSCRIPTION_SOURCE_TYPE="auto"
-SUBSCRIPTION_URL="https://example.com/path/to/your/subscription"
-```
-
-For encoded input:
-
-```bash
-SUBSCRIPTION_SOURCE_TYPE="base64"
-SUBSCRIPTION_BASE64="c3M6Ly8..."
+# edit .env with your subscription URL or Base64 string
 ```
 
 ## Usage
 
-Generate a Clash YAML file using source values from `.env`:
+### 1. Decode a subscription
+
+From `.env` config:
 
 ```bash
-python3 decode_subscription.py -o subscription.yaml
+python3 decode_subscription.py
 ```
 
-You can also pass a subscription URL directly:
+Pass a URL directly:
 
 ```bash
-python3 decode_subscription.py 'https://example.com/subscription' -o subscription.yaml
+python3 decode_subscription.py 'https://example.com/subscription'
 ```
 
-Or pass encoded Base64 text directly:
+Pass a Base64 string directly:
 
 ```bash
-python3 decode_subscription.py 'c3M6Ly8...' --source-type base64 -o subscription.yaml
+python3 decode_subscription.py 'c3M6Ly8...' --source-type base64
 ```
 
-With `SUBSCRIPTION_SOURCE_TYPE=auto` (default), the script treats `http(s)` values as URL sources and non-URL values as encoded text.
+The `--source-type` flag accepts `auto` (default), `url`, or `base64`. In `auto` mode, `http(s)` values are fetched and everything else is decoded as Base64.
 
-If `-o` is omitted, the default output path is `subscription.yaml`.
+Output defaults to `subscription.yaml`. Change it with `-o`:
 
-## Decorate Proxy Names
+```bash
+python3 decode_subscription.py -o my.yaml
+```
 
-Use [decorate_subscription.py](./decorate_subscription.py) to add a country flag
-emoji prefix to each proxy name based on its `server` IP address. The script
-also updates matching entries inside `proxy-groups` so the final Clash YAML
-stays consistent.
+### 2. Decorate proxy names with country flags
 
-Decorate an existing generated YAML file:
+Prefixes each proxy name with a country flag emoji (e.g. `🇺🇸 Node-1`) based on a geo-IP lookup of the server IP. Also updates all matching entries inside `proxy-groups`.
 
 ```bash
 python3 decorate_subscription.py --input subscription.yaml --output subscription.decorated.yaml
 ```
 
-## One-Shot Shell Flow
-
-Use [generate_decorated_subscription.sh](./generate_decorated_subscription.sh) to:
-
-1. generate `subscription.yaml` with `decode_subscription.py`
-2. decorate the proxy names with `decorate_subscription.py`
-3. write the final YAML file
-
-Example:
+### 3. One-shot: decode + decorate
 
 ```bash
-bash generate_decorated_subscription.sh subscription.yaml subscription.decorated.yaml
+bash generate_decorated_subscription.sh
+# writes subscription.yaml then subscription.decorated.yaml
 ```
 
-## IP Country Lookup
-
-Use [lookup_ip_country.py](./lookup_ip_country.py) to resolve the country for
-one or more IP addresses. It accepts IPs directly on the command line or
-extracts `server:` IPs from a Clash YAML file and returns JSON output.
-
-Look up IPs directly:
+Custom output paths:
 
 ```bash
-python3 lookup_ip_country.py 199.115.229.85 67.209.191.99
+bash generate_decorated_subscription.sh my.yaml my.decorated.yaml
 ```
 
-Or extract `server:` IPs from a generated Clash YAML file:
+### 4. IP country lookup
+
+Look up one or more IPs directly:
+
+```bash
+python3 lookup_ip_country.py 1.2.3.4 5.6.7.8
+```
+
+Extract all `server:` IPs from an existing Clash YAML and save results:
 
 ```bash
 python3 lookup_ip_country.py --input subscription.yaml -o ip_countries.json
 ```
 
-If `-o` is omitted, the JSON result is printed to stdout.
+Without `-o`, results print as JSON to stdout.
+
+## Configuration (`.env`)
+
+| Variable | Description |
+|---|---|
+| `SUBSCRIPTION_SOURCE_TYPE` | `auto` (default), `url`, or `base64` |
+| `SUBSCRIPTION_URL` | Subscription URL (used when source type is `url` or `auto`) |
+| `SUBSCRIPTION_BASE64` | Inline Base64 string (used when source type is `base64` or `auto`) |
+| `SUBSCRIPTION_SOURCE` | Generic fallback used by all modes |
 
 ## Policy Template
 
-The converter reads [clash_policy_template.yaml](./clash_policy_template.yaml),
-which already contains the extracted `proxy-groups` and `rules` from your
-reference config with Chinese group names translated to English.
+`clash_policy_template.yaml` contains pre-defined `proxy-groups` and `rules`. The placeholder `__ALL_PROXIES__` inside it is expanded into the full decoded proxy list at conversion time.
 
-The generated template is JSON-compatible YAML so the converter can load it
-without third-party dependencies.
-During conversion, the placeholder `__ALL_PROXIES__` inside the template is
-expanded into the decoded proxy names from the current subscription.
+The file is JSON-compatible YAML so it loads without any third-party library. Edit it to customise your routing rules.
+
+## Code Structure
+
+```
+decode_subscription.py       ← entry point (thin wrapper)
+decorate_subscription.py     ← entry point (thin wrapper)
+lookup_ip_country.py         ← entry point (thin wrapper)
+generate_decorated_subscription.sh
+clash_policy_template.yaml
+
+src/sub_converter/
+├── utils.py                 pad_base64, parse_bool, clean_query, decode_name
+├── config/
+│   └── settings.py          load_env_file, parse_source_type, is_probable_url
+├── services/
+│   ├── subscription.py      HTTP fetch, Base64 decode, entry splitting
+│   └── geo_ip.py            ipwho.is lookup, IP extraction
+├── parsers/
+│   ├── __init__.py          parse_entry() dispatcher
+│   ├── ss.py                ShadowSocks
+│   ├── vmess.py             VMess
+│   ├── ssr.py               ShadowSocksR
+│   └── generic.py           trojan / vless / socks / http
+├── converters/
+│   └── clash.py             node → Clash proxy dict, config assembly
+├── renderers/
+│   └── yaml.py              stdlib YAML serialiser
+├── decorators/
+│   └── flag.py              country flag emoji decoration
+└── cli/
+    ├── decode.py            decode main()
+    ├── decorate.py          decorate main()
+    └── lookup.py            lookup main()
+```
+
+To add a new proxy protocol: create `src/sub_converter/parsers/myproto.py`, register it in `parsers/__init__.py`, then add a matching branch in `converters/clash.py`.
 
 ## Notes
 
-- `.env` is ignored by git and should contain your real private subscription URL.
-- `.env.example` is safe to commit and share.
-- Generated `subscription.yaml` is ignored by git.
-- The converter requires `clash_policy_template.yaml` to be present.
-- `lookup_ip_country.py` uses an online geo-IP API, so it requires network access when you run it.
-- `decorate_subscription.py` also requires network access because it uses geo-IP lookups for proxy server IPs.
+- `.env` is git-ignored. `.env.example` is safe to commit.
+- `subscription.yaml` and `subscription.decorated.yaml` are git-ignored.
+- Decoration and IP lookup require network access (queries `ipwho.is`).
 
 ## License
 
