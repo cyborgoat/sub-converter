@@ -1,6 +1,12 @@
 # sub-converter
 
-Convert proxy subscriptions into Clash-compatible YAML. Zero external dependencies — pure Python stdlib.
+Convert proxy subscriptions into Clash-compatible YAML.
+
+This repo now includes:
+
+- the original Python converter
+- a Cloudflare Worker in `worker/`
+- a Vite + React web UI in `web/` for safe worker requests
 
 **Supports:** `ss` · `vmess` · `ssr` · `trojan` · `vless` · `socks` · `http/https`
 
@@ -79,6 +85,41 @@ python3 lookup_ip_country.py --input subscription.yaml -o ip_countries.json
 ```
 
 Without `-o`, results print as JSON to stdout.
+
+## Web UI
+
+The `web/` app gives users a simple browser interface for the Cloudflare Worker:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+It URL-encodes the subscription URL before calling the worker, which avoids nested-query parsing issues.
+
+To prefill the worker endpoint in local development or GitHub Pages builds, set:
+
+```bash
+VITE_WORKER_URL=https://sub-converter-worker.example.workers.dev
+```
+
+## Cloudflare Worker
+
+The Worker project lives in `worker/`:
+
+```bash
+cd worker
+npm install
+npm run build
+npm run dev
+```
+
+The worker expects:
+
+```text
+GET /?url=<percent-encoded-subscription-url>[&decorate=false]
+```
 
 ## Configuration (`.env`)
 

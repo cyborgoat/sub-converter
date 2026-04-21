@@ -97,7 +97,7 @@ npm run deploy -- --env production
 GET /?url=<subscription_url>[&decorate=true/false]
 ```
 
-The nested subscription URL should ideally be percent-encoded, but the worker also recovers common raw pasted URLs such as `?url=https://example.com/sub?id=123`.
+The `url` query parameter should be percent-encoded by the client. The new `web/` app handles that automatically.
 
 ### Parameters
 
@@ -118,14 +118,14 @@ Returns a Clash-compatible YAML configuration file with:
 
 **Basic usage:**
 ```bash
-curl "https://sub-converter-worker.yourname.workers.dev/?url=https://example.com/subscription" \
+curl "https://sub-converter-worker.yourname.workers.dev/?url=https%3A%2F%2Fexample.com%2Fsubscription" \
   -H "Accept: application/yaml" \
   -o clash.yaml
 ```
 
 **Without decoration:**
 ```bash
-curl "https://sub-converter-worker.yourname.workers.dev/?url=https://example.com/subscription&decorate=false" \
+curl "https://sub-converter-worker.yourname.workers.dev/?url=https%3A%2F%2Fexample.com%2Fsubscription&decorate=false" \
   -o clash.yaml
 ```
 

@@ -7,24 +7,6 @@ import { buildClashConfig } from './converters/clash';
 import { renderYaml } from './renderers/yaml';
 import { decorateProxyName } from './decorators/flag';
 
-function getSubscriptionUrl(requestUrl: URL): string | null {
-  const directUrl = requestUrl.searchParams.get('url');
-  if (!directUrl) {
-    return null;
-  }
-
-  let reconstructed = directUrl;
-  for (const [key, value] of requestUrl.searchParams.entries()) {
-    if (key === 'url' || key === 'decorate') {
-      continue;
-    }
-    reconstructed += reconstructed.includes('?') ? '&' : '?';
-    reconstructed += `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
-  }
-
-  return reconstructed;
-}
-
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
@@ -32,7 +14,7 @@ async function handleRequest(request: Request): Promise<Response> {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
-  const subscriptionUrl = getSubscriptionUrl(url);
+  const subscriptionUrl = url.searchParams.get('url');
   if (!subscriptionUrl) {
     return new Response(
       'Missing required parameter: url\nUsage: ?url=<subscription_url>',
