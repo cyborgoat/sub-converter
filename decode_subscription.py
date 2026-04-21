@@ -51,6 +51,18 @@ def fetch_subscription(url: str, timeout: int) -> bytes:
         return response.read()
 
 
+def parse_source_type(value: Any) -> str:
+    source_type = str(value or "auto").strip().lower()
+    if source_type not in {"auto", "url", "base64"}:
+        raise ValueError("source type must be 'auto', 'url', or 'base64'")
+    return source_type
+
+
+def is_probable_url(value: str) -> bool:
+    parsed = urlparse(value.strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
 def pad_base64(value: str) -> str:
     trimmed = re.sub(r"\s+", "", value.strip()).replace("-", "+").replace("_", "/")
     if not trimmed:
@@ -205,8 +217,8 @@ def parse_ssr(url: str) -> dict[str, Any]:
     payload = base64.b64decode(pad_base64(url[len("ssr://") :])).decode(
         "utf-8", errors="strict"
     )
-    main, _, query_string = payload.partition("/?")
-    parts = main.split(":")
+    main_part, _, query_string = payload.partition("/?")
+    parts = main_part.split(":")
     if len(parts) < 6:
         raise ValueError("invalid ssr entry")
 
@@ -484,7 +496,8 @@ def to_yaml(value: Any, indent: int = 0) -> str:
 
 
 def build_clash_config(
-    source_url: str,
+    source: str,
+    source_type: str,
     encoding: str,
     entries: list[str],
     policy_template: dict[str, Any] | None = None,
@@ -496,7 +509,14 @@ def build_clash_config(
         try:
             node = parse_entry(entry)
             proxies.append(prune_none(clash_proxy_from_node(node, index)))
-        except Exception:
+        except (
+            ValueError,
+            KeyError,
+            TypeError,
+            json.JSONDecodeError,
+            binascii.Error,
+            UnicodeDecodeError,
+        ):
             skipped += 1
 
     proxy_names = [proxy["name"] for proxy in proxies]
@@ -533,7 +553,8 @@ def build_clash_config(
         "proxy-groups": proxy_groups,
         "rules": rules,
         "subscription-info": {
-            "source-url": source_url,
+            "source": source,
+            "source-type": source_type,
             "source-encoding": encoding,
             "node-count": len(proxies),
         },
@@ -545,12 +566,15 @@ def main() -> int:
     load_env_file()
 
     parser = argparse.ArgumentParser(
-        description="Decode a subscription URL into a Clash-compatible YAML file."
+        description="Decode a subscription source into a Clash-compatible YAML file."
     )
     parser.add_argument(
-        "url",
+        "source",
         nargs="?",
-        help="Subscription URL to fetch and decode. Defaults to SUBSCRIPTION_URL from .env.",
+        help=(
+            "Subscription source text. Accepts URL or Base64 text depending on --source-type. "
+            "When source type is auto, URLs are fetched and non-URLs are treated as Base64 text."
+        ),
     )
     parser.add_argument(
         "-o",
@@ -569,18 +593,72 @@ def main() -> int:
         default="clash_policy_template.yaml",
         help="Policy template path. Default: clash_policy_template.yaml",
     )
+    parser.add_argument(
+        "--source-type",
+        choices=["auto", "url", "base64"],
+        help="Subscription source type. Defaults to SUBSCRIPTION_SOURCE_TYPE from .env, then auto.",
+    )
     args = parser.parse_args()
 
-    subscription_url = args.url or os.environ.get("SUBSCRIPTION_URL")
-    if not subscription_url:
-        parser.error("missing subscription URL; pass one or set SUBSCRIPTION_URL in .env")
+    source_type_value = args.source_type or os.environ.get(
+        "SUBSCRIPTION_SOURCE_TYPE", "auto"
+    )
+    try:
+        source_type = parse_source_type(source_type_value)
+    except ValueError as exc:
+        parser.error(str(exc))
 
-    raw = fetch_subscription(subscription_url, args.timeout)
+    source = args.source
+    resolved_source_type = source_type
+
+    if source_type == "url":
+        source = source or os.environ.get("SUBSCRIPTION_URL") or os.environ.get(
+            "SUBSCRIPTION_SOURCE"
+        )
+        if not source:
+            parser.error(
+                "missing subscription URL; pass one or set SUBSCRIPTION_URL (or SUBSCRIPTION_SOURCE) in .env"
+            )
+        if not is_probable_url(source):
+            parser.error("source-type is url but source does not look like an http(s) URL")
+        raw = fetch_subscription(source, args.timeout)
+    elif source_type == "base64":
+        source = (
+            source
+            or os.environ.get("SUBSCRIPTION_BASE64")
+            or os.environ.get("SUBSCRIPTION_ENCODED")
+            or os.environ.get("SUBSCRIPTION_SOURCE")
+        )
+        if not source:
+            parser.error(
+                "missing Base64 subscription; pass one or set SUBSCRIPTION_BASE64 (or SUBSCRIPTION_ENCODED / SUBSCRIPTION_SOURCE) in .env"
+            )
+        raw = source.encode("utf-8")
+    else:
+        source = (
+            source
+            or os.environ.get("SUBSCRIPTION_SOURCE")
+            or os.environ.get("SUBSCRIPTION_URL")
+            or os.environ.get("SUBSCRIPTION_BASE64")
+            or os.environ.get("SUBSCRIPTION_ENCODED")
+        )
+        if not source:
+            parser.error(
+                "missing subscription source; pass one or set SUBSCRIPTION_SOURCE/SUBSCRIPTION_URL/SUBSCRIPTION_BASE64 in .env"
+            )
+        if is_probable_url(source):
+            resolved_source_type = "url"
+            raw = fetch_subscription(source, args.timeout)
+        else:
+            resolved_source_type = "base64"
+            raw = source.encode("utf-8")
+
     text, encoding = subscription_text(raw)
     entries = split_entries(text)
     policy_template = load_policy_template(args.template)
     config, skipped = build_clash_config(
-        subscription_url,
+        source,
+        resolved_source_type,
         encoding,
         entries,
         policy_template=policy_template,

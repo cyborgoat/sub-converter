@@ -13,7 +13,7 @@ This repo contains a small dependency-free Python script that:
 
 ## Setup
 
-Create `.env` from `.env.example` and set `SUBSCRIPTION_URL`:
+Create `.env` from `.env.example` and configure either a URL or Base64-encoded subscription source:
 
 ```bash
 cp .env.example .env
@@ -22,12 +22,20 @@ cp .env.example .env
 Example `.env`:
 
 ```bash
+SUBSCRIPTION_SOURCE_TYPE="auto"
 SUBSCRIPTION_URL="https://example.com/path/to/your/subscription"
+```
+
+For encoded input:
+
+```bash
+SUBSCRIPTION_SOURCE_TYPE="base64"
+SUBSCRIPTION_BASE64="c3M6Ly8..."
 ```
 
 ## Usage
 
-Generate a Clash YAML file using the URL from `.env`:
+Generate a Clash YAML file using source values from `.env`:
 
 ```bash
 python3 decode_subscription.py -o subscription.yaml
@@ -38,6 +46,14 @@ You can also pass a subscription URL directly:
 ```bash
 python3 decode_subscription.py 'https://example.com/subscription' -o subscription.yaml
 ```
+
+Or pass encoded Base64 text directly:
+
+```bash
+python3 decode_subscription.py 'c3M6Ly8...' --source-type base64 -o subscription.yaml
+```
+
+With `SUBSCRIPTION_SOURCE_TYPE=auto` (default), the script treats `http(s)` values as URL sources and non-URL values as encoded text.
 
 If `-o` is omitted, the default output path is `subscription.yaml`.
 
