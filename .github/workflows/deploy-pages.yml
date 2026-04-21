@@ -52,14 +52,6 @@ jobs:
             echo "VITE_BASE=/" >> "$GITHUB_ENV"
           fi
 
-          if [ -n "${VITE_WORKER_URL_VAR}" ]; then
-            echo "VITE_WORKER_URL=${VITE_WORKER_URL_VAR}" >> "$GITHUB_ENV"
-          else
-            echo "VITE_WORKER_URL=" >> "$GITHUB_ENV"
-          fi
-        env:
-          VITE_WORKER_URL_VAR: ${{ vars.VITE_WORKER_URL }}
-
       - name: Build
         working-directory: web
         run: npm run build

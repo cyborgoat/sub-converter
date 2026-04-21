@@ -96,12 +96,11 @@ npm install
 npm run dev
 ```
 
-It URL-encodes the subscription URL before calling the worker, which avoids nested-query parsing issues.
+It URL-encodes the subscription URL and returns the final worker URL, using this
+fixed endpoint:
 
-To prefill the worker endpoint in local development or GitHub Pages builds, set:
-
-```bash
-VITE_WORKER_URL=https://sub-converter-worker.example.workers.dev
+```text
+https://sub-converter-worker.cyborgoat.workers.dev
 ```
 
 ## Cloudflare Worker

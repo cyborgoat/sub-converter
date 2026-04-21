@@ -1,16 +1,15 @@
 import { useMemo, useState } from 'react'
 
-const defaultWorkerUrl = import.meta.env.VITE_WORKER_URL ?? ''
+const workerUrl = 'https://sub-converter-worker.cyborgoat.workers.dev'
 
-function buildRequestUrl(workerUrl, subscriptionUrl, decorate) {
-  const endpoint = workerUrl.trim()
+function buildRequestUrl(subscriptionUrl, decorate) {
   const subscription = subscriptionUrl.trim()
 
-  if (!endpoint || !subscription) {
+  if (!subscription) {
     return ''
   }
 
-  const url = new URL(endpoint)
+  const url = new URL(workerUrl)
   url.search = ''
   url.searchParams.set('url', subscription)
   if (!decorate) {
@@ -20,45 +19,16 @@ function buildRequestUrl(workerUrl, subscriptionUrl, decorate) {
 }
 
 function App() {
-  const [workerUrl, setWorkerUrl] = useState(defaultWorkerUrl)
   const [subscriptionUrl, setSubscriptionUrl] = useState('')
   const [decorate, setDecorate] = useState(true)
-  const [error, setError] = useState('')
 
   const requestUrl = useMemo(() => {
     try {
-      return buildRequestUrl(workerUrl, subscriptionUrl, decorate)
+      return buildRequestUrl(subscriptionUrl, decorate)
     } catch {
       return ''
     }
-  }, [decorate, subscriptionUrl, workerUrl])
-
-  function handleSubmit(event) {
-    event.preventDefault()
-
-    try {
-      if (!subscriptionUrl.trim()) {
-        throw new Error('Enter a subscription URL first.')
-      }
-      if (!workerUrl.trim()) {
-        throw new Error('Enter your worker URL first.')
-      }
-
-      const downloadUrl = buildRequestUrl(workerUrl, subscriptionUrl, decorate)
-      if (!downloadUrl) {
-        throw new Error('Unable to build the worker request URL.')
-      }
-
-      setError('')
-      window.location.assign(downloadUrl)
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : 'Unable to prepare the worker request.'
-      )
-    }
-  }
+  }, [decorate, subscriptionUrl])
 
   return (
     <main className="app-shell">
@@ -66,22 +36,15 @@ function App() {
         <p className="eyebrow">sub-converter</p>
         <h1>Convert a subscription URL to Clash YAML</h1>
         <p className="lead">
-          Paste your subscription URL, let the app encode it safely, and send it
-          to your Cloudflare Worker for download.
+          Paste your subscription URL and the app will generate the final encoded
+          worker URL for downloading the Clash YAML file.
         </p>
 
-        <form className="converter-form" onSubmit={handleSubmit}>
-          <label className="field">
+        <section className="converter-form">
+          <div className="fixed-worker">
             <span>Worker URL</span>
-            <input
-              type="url"
-              value={workerUrl}
-              onChange={(event) => setWorkerUrl(event.target.value)}
-              placeholder="https://sub-converter-worker.example.workers.dev"
-              autoComplete="off"
-              spellCheck="false"
-            />
-          </label>
+            <code>{workerUrl}</code>
+          </div>
 
           <label className="field">
             <span>Subscription URL</span>
@@ -103,34 +66,19 @@ function App() {
             />
             <span>Decorate proxy names with country flags</span>
           </label>
-
-          <div className="actions">
-            <button type="submit">Download Clash YAML</button>
-            <a
-              className={`secondary-action${requestUrl ? '' : ' disabled'}`}
-              href={requestUrl || undefined}
-              target="_blank"
-              rel="noreferrer"
-              aria-disabled={!requestUrl}
-            >
-              Open worker URL
-            </a>
-          </div>
-
-          {error ? <p className="error">{error}</p> : null}
-        </form>
+        </section>
 
         <section className="result-panel">
           <h2>Encoded worker request</h2>
           <p>
-            This is the exact URL the browser will request. The nested
-            subscription URL is encoded automatically.
+            Copy this URL and open it in a browser or use it directly in a
+            download command.
           </p>
           <textarea
             rows="5"
             readOnly
             value={requestUrl}
-            placeholder="Fill in both URLs to generate the worker request."
+            placeholder="Enter a subscription URL to generate the final worker URL."
           />
         </section>
       </section>

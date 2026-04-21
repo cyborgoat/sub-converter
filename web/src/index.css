@@ -96,25 +96,34 @@ h2 {
   gap: 0.45rem;
 }
 
+.fixed-worker {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .field span,
-.checkbox-row span {
+.checkbox-row span,
+.fixed-worker span {
   color: #dbeafe;
   font-weight: 600;
 }
 
-.field input,
 .field textarea,
-.result-panel textarea {
+.result-panel textarea,
+.fixed-worker code {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: rgba(15, 23, 42, 0.92);
   color: #f8fafc;
   border-radius: 14px;
   padding: 0.95rem 1rem;
+}
+
+.field textarea,
+.result-panel textarea {
   resize: vertical;
 }
 
-.field input:focus,
 .field textarea:focus,
 .result-panel textarea:focus {
   outline: 2px solid rgba(96, 165, 250, 0.5);
@@ -130,47 +139,6 @@ h2 {
 .checkbox-row input {
   width: 1rem;
   height: 1rem;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.actions button,
-.secondary-action {
-  border-radius: 999px;
-  padding: 0.85rem 1.2rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
-
-.actions button {
-  border: 0;
-  background: linear-gradient(135deg, #60a5fa, #2563eb);
-  color: #eff6ff;
-  cursor: pointer;
-}
-
-.secondary-action {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  color: #dbeafe;
-}
-
-.actions button:hover,
-.secondary-action:hover {
-  transform: translateY(-1px);
-}
-
-.secondary-action.disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-.error {
-  color: #fca5a5;
 }
 
 .result-panel {
