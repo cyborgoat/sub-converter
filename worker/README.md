@@ -6,7 +6,7 @@ A Cloudflare Workers-based service that converts proxy subscription URLs to Clas
 
 - ✅ Supports multiple proxy protocols: SS, VMess, SSR, Trojan, VLESS, SOCKS5, HTTP/HTTPS
 - ✅ Automatic Base64 decoding of subscription data
-- ✅ Converts to Clash YAML format with proxy groups and routing rules
+- ✅ Converts to Clash YAML format using the shared policy template
 - ✅ Optional country flag emoji decoration for proxy names (geolocation lookup)
 - ✅ Graceful error handling and detailed error messages
 - ✅ Serverless deployment on Cloudflare Workers (free tier available)
@@ -45,18 +45,18 @@ Start the local development server:
 npm run dev
 ```
 
-This starts a local Cloudflare Workers environment at `http://localhost:8787`.
+This starts a local Cloudflare Workers environment at `http://127.0.0.1:8787`.
 
 ### Test with curl
 
 Convert a subscription URL to Clash YAML:
 ```bash
-curl "http://localhost:8787/?url=https://example.com/subscription" -o clash.yaml
+curl "http://127.0.0.1:8787/?url=https://example.com/subscription" -o clash.yaml
 ```
 
 Disable country flag decoration:
 ```bash
-curl "http://localhost:8787/?url=https://example.com/subscription&decorate=false" -o clash.yaml
+curl "http://127.0.0.1:8787/?url=https://example.com/subscription&decorate=false" -o clash.yaml
 ```
 
 ## Deployment
@@ -110,8 +110,8 @@ The `url` query parameter should be percent-encoded by the client. The new `web/
 
 Returns a Clash-compatible YAML configuration file with:
 - Proxy list
-- Proxy groups (PROXY selector + AUTO speed test group)
-- Basic routing rules
+- Policy-template proxy groups
+- Policy-template routing rules
 - Subscription metadata
 
 ### Examples
@@ -154,8 +154,9 @@ All errors include descriptive messages for debugging.
 3. Parses individual proxy entries (protocol-specific)
 4. Converts to Clash proxy format
 5. Optionally decorates proxy names with country flags (via ipwho.is API)
-6. Renders complete Clash YAML configuration
-7. Returns with appropriate YAML content-type headers
+6. Expands `__ALL_PROXIES__` inside the shared policy template
+7. Renders complete Clash YAML configuration
+8. Returns with appropriate YAML content-type headers
 
 ## Geolocation Decoration
 

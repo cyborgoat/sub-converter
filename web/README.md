@@ -14,10 +14,12 @@ npm install
 npm run dev
 ```
 
-The app uses this fixed worker endpoint:
+Worker endpoint resolution order:
 
 ```text
-https://sub-converter-worker.cyborgoat.workers.dev
+VITE_WORKER_URL
+http://127.0.0.1:8787/          # when running in Vite dev mode
+https://sub-converter-worker.cyborgoat.workers.dev/
 ```
 
 ## Build
@@ -25,6 +27,8 @@ https://sub-converter-worker.cyborgoat.workers.dev
 ```bash
 npm run build
 ```
+
+The current Vite toolchain requires a Node version compatible with the installed Vite release.
 
 ## GitHub Pages
 

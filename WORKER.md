@@ -46,8 +46,8 @@ worker/                    # Cloudflare Worker project root
 
 ### Output Features
 - ✅ Clash-compatible YAML format
-- ✅ Proxy groups (PROXY selector + AUTO speed test)
-- ✅ Default routing rules
+- ✅ Policy-template proxy groups
+- ✅ Policy-template routing rules
 - ✅ Subscription metadata
 - ✅ Optional country flag emoji decoration
 

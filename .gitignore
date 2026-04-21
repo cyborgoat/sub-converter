@@ -68,10 +68,6 @@ web_modules/
 # dotenv environment variable files
 .env
 .env.*
-!.env.example
-subscription.yaml
-subscription.decorated.yaml
-ip_countries.json
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

@@ -28,7 +28,7 @@ async function handleRequest(request: Request): Promise<Response> {
   try {
     // Fetch subscription
     const raw = await fetchSubscription(subscriptionUrl, 15000);
-    const [text, sourceType] = subscriptionText(raw);
+    const [text, sourceType, encoding] = subscriptionText(raw);
     const entries = splitEntries(text);
 
     if (entries.length === 0) {
@@ -39,7 +39,7 @@ async function handleRequest(request: Request): Promise<Response> {
     }
 
     // Build clash config
-    const { config, skipped } = buildClashConfig(subscriptionUrl, sourceType, entries);
+    const { config, skipped } = buildClashConfig(subscriptionUrl, sourceType, encoding, entries);
     if (config.proxies.length === 0) {
       return new Response(
         `No supported proxy entries were converted (${skipped} skipped).`,

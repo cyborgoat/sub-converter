@@ -76,12 +76,12 @@ export async function fetchSubscription(url: string, timeout: number = 10000): P
   }
 }
 
-export function subscriptionText(raw: string): [string, string] {
+export function subscriptionText(raw: string): [string, string, string] {
   const decoded = tryDecodeBase64(raw);
   if (decoded !== null) {
-    return [decoded, 'base64'];
+    return [decoded, 'base64', 'utf-8'];
   }
-  return [raw, 'plain'];
+  return [raw, 'plain', 'utf-8'];
 }
 
 export function splitEntries(text: string): string[] {

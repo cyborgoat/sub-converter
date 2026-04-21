@@ -1,6 +1,21 @@
 import { useMemo, useState } from 'react'
 
-const workerUrl = 'https://sub-converter-worker.cyborgoat.workers.dev'
+const defaultProdWorkerUrl = 'https://sub-converter-worker.cyborgoat.workers.dev/'
+
+function resolveWorkerUrl() {
+  const configured = import.meta.env.VITE_WORKER_URL?.trim()
+  if (configured) {
+    return configured
+  }
+
+  if (import.meta.env.DEV) {
+    return 'http://127.0.0.1:8787/'
+  }
+
+  return defaultProdWorkerUrl
+}
+
+const workerUrl = resolveWorkerUrl()
 
 function buildRequestUrl(subscriptionUrl, decorate) {
   const subscription = subscriptionUrl.trim()

@@ -2,9 +2,7 @@
  * YAML rendering for Clash config
  */
 
-import { ClashConfig } from '../utils/types';
-
-function escapeYamlString(value: any): string {
+function yamlScalar(value: any): string {
   if (value === null || value === undefined) {
     return 'null';
   }
@@ -14,73 +12,60 @@ function escapeYamlString(value: any): string {
   if (typeof value === 'number') {
     return String(value);
   }
-  if (typeof value === 'string') {
-    // Check if string needs quoting
-    if (/^[0-9]+$/.test(value) || value.includes(':') || value.includes('#') || 
-        value.includes('"') || value.includes("'") || value.trim() !== value) {
-      return `"${value.replace(/"/g, '\\"')}"`;
-    }
-    return value;
-  }
-  return String(value);
+  return JSON.stringify(String(value));
 }
 
-function renderYamlObject(obj: any, indent: number = 0): string {
-  const spaces = ' '.repeat(indent);
-  const nextIndent = ' '.repeat(indent + 2);
-  const lines: string[] = [];
+export function renderYaml(value: any, indent: number = 0): string {
+  const space = '  '.repeat(indent);
 
-  if (Array.isArray(obj)) {
-    for (const item of obj) {
-      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-        lines.push(`${spaces}-`);
-        const itemLines = renderYamlObject(item, indent + 2).split('\n');
-        for (const line of itemLines) {
-          lines.push(line);
-        }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const lines: string[] = [];
+    for (const [key, item] of Object.entries(value)) {
+      if (Array.isArray(item) || (item && typeof item === 'object')) {
+        lines.push(`${space}${key}:`);
+        lines.push(renderYaml(item, indent + 1));
       } else {
-        lines.push(`${spaces}- ${escapeYamlString(item)}`);
+        lines.push(`${space}${key}: ${yamlScalar(item)}`);
       }
     }
-  } else if (typeof obj === 'object' && obj !== null) {
-    const keys = Object.keys(obj).sort();
-    for (const key of keys) {
-      const value = obj[key];
-      if (value === null || value === undefined) {
-        continue;
-      }
-      if (Array.isArray(value)) {
-        lines.push(`${spaces}${key}:`);
-        if (value.length === 0) {
-          lines.push(`${nextIndent}[]`);
-        } else if (typeof value[0] === 'object' && value[0] !== null) {
-          for (const item of value) {
-            lines.push(`${nextIndent}-`);
-            const itemLines = renderYamlObject(item, indent + 4).split('\n');
-            for (const line of itemLines) {
-              lines.push(line);
-            }
-          }
+    return lines.length > 0 ? lines.join('\n') : `${space}{}`;
+  }
+
+  if (Array.isArray(value)) {
+    const lines: string[] = [];
+    for (const item of value) {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const entries = Object.entries(item);
+        if (entries.length === 0) {
+          lines.push(`${space}- {}`);
+          continue;
+        }
+
+        const [firstKey, firstValue] = entries[0];
+        if (Array.isArray(firstValue) || (firstValue && typeof firstValue === 'object')) {
+          lines.push(`${space}- ${firstKey}:`);
+          lines.push(renderYaml(firstValue, indent + 2));
         } else {
-          for (const item of value) {
-            lines.push(`${nextIndent}- ${escapeYamlString(item)}`);
+          lines.push(`${space}- ${firstKey}: ${yamlScalar(firstValue)}`);
+        }
+
+        for (const [key, nested] of entries.slice(1)) {
+          if (Array.isArray(nested) || (nested && typeof nested === 'object')) {
+            lines.push(`${space}  ${key}:`);
+            lines.push(renderYaml(nested, indent + 2));
+          } else {
+            lines.push(`${space}  ${key}: ${yamlScalar(nested)}`);
           }
         }
-      } else if (typeof value === 'object' && value !== null) {
-        lines.push(`${spaces}${key}:`);
-        const nestedLines = renderYamlObject(value, indent + 2).split('\n');
-        for (const line of nestedLines) {
-          lines.push(line);
-        }
+      } else if (Array.isArray(item)) {
+        lines.push(`${space}-`);
+        lines.push(renderYaml(item, indent + 1));
       } else {
-        lines.push(`${spaces}${key}: ${escapeYamlString(value)}`);
+        lines.push(`${space}- ${yamlScalar(item)}`);
       }
     }
+    return lines.length > 0 ? lines.join('\n') : `${space}[]`;
   }
 
-  return lines.join('\n');
-}
-
-export function renderYaml(obj: ClashConfig): string {
-  return renderYamlObject(obj, 0);
+  return `${space}${yamlScalar(value)}`;
 }

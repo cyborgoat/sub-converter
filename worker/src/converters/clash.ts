@@ -4,6 +4,7 @@
 
 import { ProxyNode, ClashProxy, ClashConfig } from '../utils/types';
 import { parseEntry } from '../parsers/index';
+import { ALL_PROXIES_PLACEHOLDER, POLICY_TEMPLATE } from '../config/policy-template';
 
 function makeName(node: ProxyNode, index: number): string {
   const name = node.name;
@@ -40,6 +41,16 @@ function pruneNone(value: any): any {
     return Object.keys(result).length > 0 ? result : undefined;
   }
   return value;
+}
+
+function expandPolicyGroups(proxyNames: string[]) {
+  return POLICY_TEMPLATE['proxy-groups'].map(group => {
+    const expanded: Record<string, any> = { ...group };
+    expanded.proxies = group.proxies.flatMap(item =>
+      item === ALL_PROXIES_PLACEHOLDER ? proxyNames : item
+    );
+    return expanded;
+  });
 }
 
 function clashProxyFromNode(node: ProxyNode, index: number): ClashProxy {
@@ -185,6 +196,7 @@ function clashProxyFromNode(node: ProxyNode, index: number): ClashProxy {
 export function buildClashConfig(
   source: string,
   sourceType: string,
+  encoding: string,
   entries: string[]
 ): { config: ClashConfig; skipped: number } {
   const proxies: ClashProxy[] = [];
@@ -205,21 +217,7 @@ export function buildClashConfig(
 
   const proxyNames = proxies.map(p => p.name);
 
-  const proxyGroups = [
-    {
-      name: 'PROXY',
-      type: 'select',
-      proxies: ['AUTO', 'DIRECT', ...proxyNames],
-    },
-    {
-      name: 'AUTO',
-      type: 'url-test',
-      url: 'http://www.gstatic.com/generate_204',
-      interval: 300,
-      tolerance: 50,
-      proxies: proxyNames,
-    },
-  ];
+  const proxyGroups = expandPolicyGroups(proxyNames);
 
   const config: ClashConfig = {
     port: 7890,
@@ -230,10 +228,11 @@ export function buildClashConfig(
     'external-controller': '127.0.0.1:9090',
     proxies,
     'proxy-groups': proxyGroups,
-    rules: ['MATCH,PROXY'],
+    rules: [...POLICY_TEMPLATE.rules],
     'subscription-info': {
       source,
       'source-type': sourceType,
+      'source-encoding': encoding,
       'node-count': proxies.length,
     },
   };
