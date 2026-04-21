@@ -16,6 +16,8 @@ from typing import Any
 from urllib.parse import parse_qsl, unquote, urlparse
 from urllib.request import Request, urlopen
 
+ALL_PROXIES_PLACEHOLDER = "__ALL_PROXIES__"
+
 
 def load_env_file(path: str = ".env") -> None:
     env_path = Path(path)
@@ -259,6 +261,38 @@ def make_name(node: dict[str, Any], index: int) -> str:
     return f"{node.get('scheme', 'proxy')}-{index}@{server}:{port}"
 
 
+def load_policy_template(template_path: str) -> dict[str, Any]:
+    template_file = Path(template_path)
+    if not template_file.exists():
+        raise FileNotFoundError(
+            f"policy template not found: {template_path}. "
+            "Expected a pre-generated clash_policy_template.yaml."
+        )
+    return json.loads(template_file.read_text(encoding="utf-8"))
+
+
+def expand_policy_groups(
+    template_groups: list[dict[str, Any]],
+    proxy_names: list[str],
+) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
+    for group in template_groups:
+        expanded_group: dict[str, Any] = {}
+        for key, value in group.items():
+            if key != "proxies":
+                expanded_group[key] = value
+                continue
+            expanded_proxies: list[str] = []
+            for item in value:
+                if item == ALL_PROXIES_PLACEHOLDER:
+                    expanded_proxies.extend(proxy_names)
+                else:
+                    expanded_proxies.append(item)
+            expanded_group["proxies"] = expanded_proxies
+        groups.append(expanded_group)
+    return groups
+
+
 def clash_proxy_from_node(node: dict[str, Any], index: int) -> dict[str, Any]:
     scheme = str(node.get("scheme", "")).lower()
     name = make_name(node, index)
@@ -449,7 +483,12 @@ def to_yaml(value: Any, indent: int = 0) -> str:
     return f"{space}{yaml_scalar(value)}"
 
 
-def build_clash_config(source_url: str, encoding: str, entries: list[str]) -> tuple[dict[str, Any], int]:
+def build_clash_config(
+    source_url: str,
+    encoding: str,
+    entries: list[str],
+    policy_template: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], int]:
     proxies: list[dict[str, Any]] = []
     skipped = 0
 
@@ -461,15 +500,11 @@ def build_clash_config(source_url: str, encoding: str, entries: list[str]) -> tu
             skipped += 1
 
     proxy_names = [proxy["name"] for proxy in proxies]
-    config = {
-        "port": 7890,
-        "socks-port": 7891,
-        "allow-lan": True,
-        "mode": "Rule",
-        "log-level": "info",
-        "external-controller": "127.0.0.1:9090",
-        "proxies": proxies,
-        "proxy-groups": [
+    if policy_template:
+        proxy_groups = expand_policy_groups(policy_template["proxy-groups"], proxy_names)
+        rules = policy_template["rules"]
+    else:
+        proxy_groups = [
             {
                 "name": "PROXY",
                 "type": "select",
@@ -483,10 +518,20 @@ def build_clash_config(source_url: str, encoding: str, entries: list[str]) -> tu
                 "tolerance": 50,
                 "proxies": proxy_names,
             },
-        ],
-        "rules": [
+        ]
+        rules = [
             "MATCH,PROXY",
-        ],
+        ]
+    config = {
+        "port": 7890,
+        "socks-port": 7891,
+        "allow-lan": True,
+        "mode": "Rule",
+        "log-level": "info",
+        "external-controller": "127.0.0.1:9090",
+        "proxies": proxies,
+        "proxy-groups": proxy_groups,
+        "rules": rules,
         "subscription-info": {
             "source-url": source_url,
             "source-encoding": encoding,
@@ -519,7 +564,13 @@ def main() -> int:
         default=30,
         help="HTTP timeout in seconds. Default: 30",
     )
+    parser.add_argument(
+        "--template",
+        default="clash_policy_template.yaml",
+        help="Policy template path. Default: clash_policy_template.yaml",
+    )
     args = parser.parse_args()
+
     subscription_url = args.url or os.environ.get("SUBSCRIPTION_URL")
     if not subscription_url:
         parser.error("missing subscription URL; pass one or set SUBSCRIPTION_URL in .env")
@@ -527,7 +578,13 @@ def main() -> int:
     raw = fetch_subscription(subscription_url, args.timeout)
     text, encoding = subscription_text(raw)
     entries = split_entries(text)
-    config, skipped = build_clash_config(subscription_url, encoding, entries)
+    policy_template = load_policy_template(args.template)
+    config, skipped = build_clash_config(
+        subscription_url,
+        encoding,
+        entries,
+        policy_template=policy_template,
+    )
 
     output_path = Path(args.output)
     output_path.write_text(to_yaml(config) + "\n", encoding="utf-8")
