@@ -6,6 +6,27 @@ import { ProxyNode, ClashProxy, ClashConfig } from '../utils/types';
 import { parseEntry } from '../parsers/index';
 import { ALL_PROXIES_PLACEHOLDER, POLICY_TEMPLATE } from '../config/policy-template';
 
+const UNIQUE_POLICY_RULES = Array.from(new Set(POLICY_TEMPLATE.rules));
+const COMPILED_POLICY_GROUPS = POLICY_TEMPLATE['proxy-groups'].map(group => {
+  const proxies = [...group.proxies] as string[];
+  const allProxyIndex = proxies.indexOf(ALL_PROXIES_PLACEHOLDER);
+  if (allProxyIndex === -1) {
+    return {
+      base: { ...group },
+      prefix: proxies,
+      suffix: [] as string[],
+      hasPlaceholder: false as const,
+    };
+  }
+
+  return {
+    base: { ...group },
+    prefix: proxies.slice(0, allProxyIndex),
+    suffix: proxies.slice(allProxyIndex + 1),
+    hasPlaceholder: true as const,
+  };
+});
+
 function makeName(node: ProxyNode, index: number): string {
   const name = node.name;
   if (typeof name === 'string' && name.trim()) {
@@ -25,30 +46,12 @@ function parseBool(value: any): boolean {
   return false;
 }
 
-function pruneNone(value: any): any {
-  if (value === null || value === undefined) return undefined;
-  if (Array.isArray(value)) {
-    return value.map(pruneNone).filter(v => v !== undefined);
-  }
-  if (typeof value === 'object') {
-    const result: any = {};
-    for (const [k, v] of Object.entries(value)) {
-      const pruned = pruneNone(v);
-      if (pruned !== undefined) {
-        result[k] = pruned;
-      }
-    }
-    return Object.keys(result).length > 0 ? result : undefined;
-  }
-  return value;
-}
-
 function expandPolicyGroups(proxyNames: string[]) {
-  return POLICY_TEMPLATE['proxy-groups'].map(group => {
-    const expanded: Record<string, any> = { ...group };
-    expanded.proxies = group.proxies.flatMap(item =>
-      item === ALL_PROXIES_PLACEHOLDER ? proxyNames : item
-    );
+  return COMPILED_POLICY_GROUPS.map(group => {
+    const expanded: Record<string, any> = { ...group.base };
+    expanded.proxies = group.hasPlaceholder
+      ? [...group.prefix, ...proxyNames, ...group.suffix]
+      : [...group.prefix];
     return expanded;
   });
 }
@@ -200,22 +203,19 @@ export function buildClashConfig(
   entries: string[]
 ): { config: ClashConfig; skipped: number } {
   const proxies: ClashProxy[] = [];
+  const proxyNames: string[] = [];
   let skipped = 0;
 
   for (let index = 0; index < entries.length; index++) {
     try {
       const node = parseEntry(entries[index]);
       const proxy = clashProxyFromNode(node, index + 1);
-      const pruned = pruneNone(proxy);
-      if (pruned) {
-        proxies.push(pruned);
-      }
+      proxies.push(proxy);
+      proxyNames.push(proxy.name);
     } catch {
       skipped++;
     }
   }
-
-  const proxyNames = proxies.map(p => p.name);
 
   const proxyGroups = expandPolicyGroups(proxyNames);
 
@@ -228,7 +228,7 @@ export function buildClashConfig(
     'external-controller': '127.0.0.1:9090',
     proxies,
     'proxy-groups': proxyGroups,
-    rules: [...POLICY_TEMPLATE.rules],
+    rules: UNIQUE_POLICY_RULES,
     'subscription-info': {
       source,
       'source-type': sourceType,

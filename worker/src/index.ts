@@ -5,7 +5,7 @@
 import { fetchSubscription, subscriptionText, splitEntries } from './services/subscription';
 import { buildClashConfig } from './converters/clash';
 import { renderYaml } from './renderers/yaml';
-import { decorateProxyName } from './decorators/flag';
+import { decorateProxyNames } from './decorators/flag';
 
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -52,13 +52,11 @@ async function handleRequest(request: Request): Promise<Response> {
 
     // Decorate proxies if requested
     if (shouldDecorate && config.proxies.length > 0) {
-      const nameMap = new Map<string, string>();
-      const decoratedProxies = [];
-      for (const proxy of config.proxies) {
-        const decorated = await decorateProxyName(proxy.name, proxy.server);
-        nameMap.set(proxy.name, decorated);
-        decoratedProxies.push({ ...proxy, name: decorated });
-      }
+      const nameMap = await decorateProxyNames(config.proxies);
+      const decoratedProxies = config.proxies.map(proxy => ({
+        ...proxy,
+        name: nameMap.get(proxy.name) ?? proxy.name,
+      }));
 
       // Update proxy names in groups
       config.proxies = decoratedProxies;
@@ -75,7 +73,7 @@ async function handleRequest(request: Request): Promise<Response> {
       status: 200,
       headers: {
         'Content-Type': 'application/yaml; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="clash.yaml"',
+        'Content-Disposition': 'attachment; filename=clash-profile',
       },
     });
   } catch (error) {

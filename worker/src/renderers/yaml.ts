@@ -15,57 +15,86 @@ function yamlScalar(value: any): string {
   return JSON.stringify(String(value));
 }
 
-export function renderYaml(value: any, indent: number = 0): string {
-  const space = '  '.repeat(indent);
+const INDENTS = ['', '  ', '    ', '      ', '        ', '          ', '            ', '              '];
+
+function indentOf(level: number): string {
+  if (level < INDENTS.length) {
+    return INDENTS[level];
+  }
+  return '  '.repeat(level);
+}
+
+function renderYamlInto(lines: string[], value: any, indent: number): void {
+  const space = indentOf(indent);
 
   if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const lines: string[] = [];
-    for (const [key, item] of Object.entries(value)) {
+    let hasEntry = false;
+    for (const key in value) {
+      const item = value[key];
+      hasEntry = true;
       if (Array.isArray(item) || (item && typeof item === 'object')) {
         lines.push(`${space}${key}:`);
-        lines.push(renderYaml(item, indent + 1));
+        renderYamlInto(lines, item, indent + 1);
       } else {
         lines.push(`${space}${key}: ${yamlScalar(item)}`);
       }
     }
-    return lines.length > 0 ? lines.join('\n') : `${space}{}`;
+    if (!hasEntry) {
+      lines.push(`${space}{}`);
+    }
+    return;
   }
 
   if (Array.isArray(value)) {
-    const lines: string[] = [];
-    for (const item of value) {
+    if (value.length === 0) {
+      lines.push(`${space}[]`);
+      return;
+    }
+
+    for (let i = 0; i < value.length; i++) {
+      const item = value[i];
       if (item && typeof item === 'object' && !Array.isArray(item)) {
-        const entries = Object.entries(item);
-        if (entries.length === 0) {
+        const keys = Object.keys(item);
+        if (keys.length === 0) {
           lines.push(`${space}- {}`);
           continue;
         }
 
-        const [firstKey, firstValue] = entries[0];
+        const firstKey = keys[0];
+        const firstValue = item[firstKey];
         if (Array.isArray(firstValue) || (firstValue && typeof firstValue === 'object')) {
           lines.push(`${space}- ${firstKey}:`);
-          lines.push(renderYaml(firstValue, indent + 2));
+          renderYamlInto(lines, firstValue, indent + 2);
         } else {
           lines.push(`${space}- ${firstKey}: ${yamlScalar(firstValue)}`);
         }
 
-        for (const [key, nested] of entries.slice(1)) {
+        const nestedSpace = indentOf(indent) + '  ';
+        for (let j = 1; j < keys.length; j++) {
+          const key = keys[j];
+          const nested = item[key];
           if (Array.isArray(nested) || (nested && typeof nested === 'object')) {
-            lines.push(`${space}  ${key}:`);
-            lines.push(renderYaml(nested, indent + 2));
+            lines.push(`${nestedSpace}${key}:`);
+            renderYamlInto(lines, nested, indent + 2);
           } else {
-            lines.push(`${space}  ${key}: ${yamlScalar(nested)}`);
+            lines.push(`${nestedSpace}${key}: ${yamlScalar(nested)}`);
           }
         }
       } else if (Array.isArray(item)) {
         lines.push(`${space}-`);
-        lines.push(renderYaml(item, indent + 1));
+        renderYamlInto(lines, item, indent + 1);
       } else {
         lines.push(`${space}- ${yamlScalar(item)}`);
       }
     }
-    return lines.length > 0 ? lines.join('\n') : `${space}[]`;
+    return;
   }
 
-  return `${space}${yamlScalar(value)}`;
+  lines.push(`${space}${yamlScalar(value)}`);
+}
+
+export function renderYaml(value: any): string {
+  const lines: string[] = [];
+  renderYamlInto(lines, value, 0);
+  return lines.join('\n');
 }

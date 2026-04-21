@@ -66,11 +66,7 @@ export async function fetchSubscription(url: string, timeout: number = 10000): P
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const buffer = await response.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    const text = new TextDecoder('utf-8').decode(bytes);
-
-    return text;
+    return response.text();
   } finally {
     clearTimeout(timeoutId);
   }
