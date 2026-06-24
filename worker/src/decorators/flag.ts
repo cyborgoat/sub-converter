@@ -1,14 +1,20 @@
 /**
- * Country flag decoration using ip-api.com
+ * Country flag decoration using geojs.io
  */
 
-interface IpApiResult {
-  status?: string;
-  countryCode?: string;
+interface GeoJsResult {
+  country_code?: string;
 }
 
 const COUNTRY_CODE_CACHE = new Map<string, Promise<string | null>>();
 const DECORATION_CONCURRENCY = 8;
+
+function isIPAddress(host: string): boolean {
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    return true;
+  }
+  return host.includes(':');
+}
 
 function countryCodeToEmoji(countryCode: string): string {
   const code = countryCode.toUpperCase();
@@ -21,20 +27,21 @@ function countryCodeToEmoji(countryCode: string): string {
 }
 
 async function getCountryCode(server: string): Promise<string | null> {
+  if (!isIPAddress(server)) {
+    return null;
+  }
+
   try {
     const response = await fetch(
-      `http://ip-api.com/json/${encodeURIComponent(server)}?fields=status,countryCode`,
+      `https://get.geojs.io/v1/ip/geo/${encodeURIComponent(server)}.json`,
       { headers: { 'User-Agent': 'sub-converter-worker/1.0' } }
     );
     if (!response.ok) {
       return null;
     }
 
-    const data = (await response.json()) as IpApiResult;
-    if (data.status !== 'success' || !data.countryCode) {
-      return null;
-    }
-    return data.countryCode;
+    const data = (await response.json()) as GeoJsResult;
+    return data.country_code || null;
   } catch {
     return null;
   }
