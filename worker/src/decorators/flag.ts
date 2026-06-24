@@ -1,9 +1,19 @@
 /**
- * Country flag decoration using ipwho.is API
+ * Country flag decoration via geo-IP lookup
  */
 
 interface GeoIPResult {
   success?: boolean;
+  country_code?: string;
+  flag?: { emoji?: string };
+}
+
+interface IpApiResult {
+  status?: string;
+  countryCode?: string;
+}
+
+interface GeoJsResult {
   country_code?: string;
 }
 
@@ -11,16 +21,7 @@ interface DnsJsonResponse {
   Answer?: Array<{ type: number; data: string }>;
 }
 
-const COUNTRY_CODE_EMOJI: Record<string, string> = {
-  'US': '🇺🇸', 'GB': '🇬🇧', 'JP': '🇯🇵', 'CN': '🇨🇳', 'SG': '🇸🇬',
-  'HK': '🇭🇰', 'TW': '🇹🇼', 'KR': '🇰🇷', 'IN': '🇮🇳', 'BR': '🇧🇷',
-  'CA': '🇨🇦', 'AU': '🇦🇺', 'DE': '🇩🇪', 'FR': '🇫🇷', 'NL': '🇳🇱',
-  'RU': '🇷🇺', 'VN': '🇻🇳', 'TH': '🇹🇭', 'MY': '🇲🇾', 'ID': '🇮🇩',
-  'PH': '🇵🇭', 'NZ': '🇳🇿', 'CH': '🇨🇭', 'SE': '🇸🇪', 'NO': '🇳🇴',
-  'DK': '🇩🇰', 'FI': '🇫🇮', 'PL': '🇵🇱', 'IT': '🇮🇹', 'ES': '🇪🇸',
-  'MX': '🇲🇽', 'ZA': '🇿🇦', 'AE': '🇦🇪', 'KE': '🇰🇪', 'NG': '🇳🇬',
-};
-
+const FETCH_HEADERS = { 'User-Agent': 'sub-converter-worker/1.0' };
 const COUNTRY_CODE_CACHE = new Map<string, Promise<string | null>>();
 const DECORATION_CONCURRENCY = 8;
 
@@ -29,6 +30,16 @@ function isIPAddress(host: string): boolean {
     return true;
   }
   return host.includes(':');
+}
+
+function countryCodeToEmoji(countryCode: string): string {
+  const code = countryCode.toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) {
+    return '🌍';
+  }
+  return String.fromCodePoint(
+    ...[...code].map(char => 0x1f1e6 + char.charCodeAt(0) - 65)
+  );
 }
 
 async function resolveHostToIP(host: string): Promise<string | null> {
@@ -40,7 +51,7 @@ async function resolveHostToIP(host: string): Promise<string | null> {
     try {
       const response = await fetch(
         `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${recordType}`,
-        { headers: { Accept: 'application/dns-json' } }
+        { headers: { Accept: 'application/dns-json', ...FETCH_HEADERS } }
       );
       if (!response.ok) {
         continue;
@@ -59,32 +70,87 @@ async function resolveHostToIP(host: string): Promise<string | null> {
   return null;
 }
 
+async function lookupViaIpApi(host: string): Promise<string | null> {
+  const response = await fetch(
+    `http://ip-api.com/json/${encodeURIComponent(host)}?fields=status,countryCode`,
+    { headers: FETCH_HEADERS }
+  );
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as IpApiResult;
+  if (data.status !== 'success' || !data.countryCode) {
+    return null;
+  }
+  return data.countryCode;
+}
+
+async function lookupViaIpWhoIs(ip: string): Promise<string | null> {
+  const response = await fetch(
+    `https://ipwho.is/${encodeURIComponent(ip)}?fields=country_code,success,flag`,
+    { headers: FETCH_HEADERS }
+  );
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as GeoIPResult;
+  if (data.success === false || !data.country_code) {
+    return null;
+  }
+  return data.country_code;
+}
+
+async function lookupViaGeoJs(ip: string): Promise<string | null> {
+  const response = await fetch(
+    `https://get.geojs.io/v1/ip/geo/${encodeURIComponent(ip)}.json`,
+    { headers: FETCH_HEADERS }
+  );
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as GeoJsResult;
+  return data.country_code || null;
+}
+
 async function getCountryCode(server: string): Promise<string | null> {
   try {
+    try {
+      const countryCode = await lookupViaIpApi(server);
+      if (countryCode) {
+        return countryCode;
+      }
+    } catch {
+      // try next provider
+    }
+
     const ip = await resolveHostToIP(server);
-    if (!ip) {
+    const target = ip || (isIPAddress(server) ? server : null);
+    if (!target) {
       return null;
     }
 
-    const response = await fetch(
-      `https://ipwho.is/${encodeURIComponent(ip)}?fields=country_code,success`
-    );
-    if (!response.ok) {
-      return null;
+    for (const lookup of [lookupViaIpWhoIs, lookupViaGeoJs]) {
+      try {
+        const countryCode = await lookup(target);
+        if (countryCode) {
+          return countryCode;
+        }
+      } catch {
+        continue;
+      }
     }
-
-    const data = (await response.json()) as GeoIPResult;
-    if (data.success === false) {
-      return null;
-    }
-    return data.country_code || null;
   } catch {
     return null;
   }
+
+  return null;
 }
 
 function getEmoji(countryCode: string): string {
-  return COUNTRY_CODE_EMOJI[countryCode.toUpperCase()] || '🌍';
+  return countryCodeToEmoji(countryCode);
 }
 
 function isDecoratedName(proxyName: string): boolean {
