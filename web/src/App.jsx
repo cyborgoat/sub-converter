@@ -5,7 +5,7 @@ const defaultProdWorkerUrl = 'https://sub.cyborgoat.com/'
 function resolveWorkerUrl() {
   const configured = import.meta.env.VITE_WORKER_URL?.trim()
   if (configured) {
-    return configured
+    return normalizeWorkerUrl(configured)
   }
 
   if (import.meta.env.DEV) {
@@ -13,6 +13,14 @@ function resolveWorkerUrl() {
   }
 
   return defaultProdWorkerUrl
+}
+
+function normalizeWorkerUrl(value) {
+  const url = new URL(value)
+  if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') {
+    url.protocol = 'https:'
+  }
+  return url.toString()
 }
 
 const workerUrl = resolveWorkerUrl()
@@ -87,7 +95,8 @@ function App() {
           <h2>Encoded worker request</h2>
           <p>
             Copy this URL and open it in a browser or use it directly in a
-            download command.
+            download command. Always use <code>https://</code> for production
+            worker links.
           </p>
           <textarea
             rows="5"

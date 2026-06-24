@@ -8,7 +8,22 @@ import { renderYaml } from './renderers/yaml';
 import { decorateProxyNames } from './decorators/flag';
 import { reconstructSubscriptionUrl } from './utils/url';
 
+function httpsRedirect(request: Request): Response | null {
+  const proto = request.headers.get('x-forwarded-proto');
+  if (proto && proto !== 'https') {
+    const url = new URL(request.url);
+    url.protocol = 'https:';
+    return Response.redirect(url.toString(), 301);
+  }
+  return null;
+}
+
 async function handleRequest(request: Request): Promise<Response> {
+  const redirect = httpsRedirect(request);
+  if (redirect) {
+    return redirect;
+  }
+
   const url = new URL(request.url);
 
   if (request.method !== 'GET') {
