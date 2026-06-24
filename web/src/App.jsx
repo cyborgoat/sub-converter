@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-const defaultProdWorkerUrl = 'https://sub-converter-worker.cyborgoat.workers.dev/'
+const defaultProdWorkerUrl = 'https://sub.cyborgoat.com/'
 
 function resolveWorkerUrl() {
   const configured = import.meta.env.VITE_WORKER_URL?.trim()

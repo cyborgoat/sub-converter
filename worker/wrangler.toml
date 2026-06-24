@@ -3,7 +3,6 @@ main = "src/index.ts"
 compatibility_date = "2025-04-21"
 compatibility_flags = []
 
-[env.production]
 routes = [
-  { pattern = "sub-converter.example.com/*", zone_name = "example.com" }
+  { pattern = "sub.cyborgoat.com", custom_domain = true }
 ]
