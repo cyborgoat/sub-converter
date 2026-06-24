@@ -3,7 +3,12 @@
  */
 
 interface GeoIPResult {
+  success?: boolean;
   country_code?: string;
+}
+
+interface DnsJsonResponse {
+  Answer?: Array<{ type: number; data: string }>;
 }
 
 const COUNTRY_CODE_EMOJI: Record<string, string> = {
@@ -19,11 +24,59 @@ const COUNTRY_CODE_EMOJI: Record<string, string> = {
 const COUNTRY_CODE_CACHE = new Map<string, Promise<string | null>>();
 const DECORATION_CONCURRENCY = 8;
 
-async function getCountryCode(ip: string): Promise<string | null> {
+function isIPAddress(host: string): boolean {
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    return true;
+  }
+  return host.includes(':');
+}
+
+async function resolveHostToIP(host: string): Promise<string | null> {
+  if (isIPAddress(host)) {
+    return host;
+  }
+
+  for (const recordType of ['A', 'AAAA'] as const) {
+    try {
+      const response = await fetch(
+        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${recordType}`,
+        { headers: { Accept: 'application/dns-json' } }
+      );
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = (await response.json()) as DnsJsonResponse;
+      const answer = data.Answer?.find(entry => entry.data);
+      if (answer?.data) {
+        return answer.data;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function getCountryCode(server: string): Promise<string | null> {
   try {
-    const response = await fetch(`https://ipwho.is/${ip}?fields=country_code`);
-    if (!response.ok) return null;
+    const ip = await resolveHostToIP(server);
+    if (!ip) {
+      return null;
+    }
+
+    const response = await fetch(
+      `https://ipwho.is/${encodeURIComponent(ip)}?fields=country_code,success`
+    );
+    if (!response.ok) {
+      return null;
+    }
+
     const data = (await response.json()) as GeoIPResult;
+    if (data.success === false) {
+      return null;
+    }
     return data.country_code || null;
   } catch {
     return null;

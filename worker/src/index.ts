@@ -6,6 +6,7 @@ import { fetchSubscription, subscriptionText, splitEntries } from './services/su
 import { buildClashConfig } from './converters/clash';
 import { renderYaml } from './renderers/yaml';
 import { decorateProxyNames } from './decorators/flag';
+import { reconstructSubscriptionUrl } from './utils/url';
 
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -14,7 +15,7 @@ async function handleRequest(request: Request): Promise<Response> {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
-  const subscriptionUrl = url.searchParams.get('url');
+  const subscriptionUrl = reconstructSubscriptionUrl(url);
   if (!subscriptionUrl) {
     return new Response(
       'Missing required parameter: url\nUsage: ?url=<subscription_url>',

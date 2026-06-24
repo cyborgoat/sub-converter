@@ -31,3 +31,26 @@ export function parseURL(str: string): URL | null {
     return null;
   }
 }
+
+const WORKER_QUERY_PARAMS = new Set(['url', 'decorate']);
+
+export function reconstructSubscriptionUrl(requestUrl: URL): string | null {
+  const base = requestUrl.searchParams.get('url');
+  if (!base) {
+    return null;
+  }
+
+  const extraParams = new URLSearchParams();
+  requestUrl.searchParams.forEach((value, key) => {
+    if (!WORKER_QUERY_PARAMS.has(key)) {
+      extraParams.append(key, value);
+    }
+  });
+
+  if (extraParams.size === 0) {
+    return base;
+  }
+
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}${extraParams.toString()}`;
+}
