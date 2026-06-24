@@ -1,36 +1,14 @@
 /**
- * Country flag decoration via geo-IP lookup
+ * Country flag decoration using ip-api.com
  */
-
-interface GeoIPResult {
-  success?: boolean;
-  country_code?: string;
-  flag?: { emoji?: string };
-}
 
 interface IpApiResult {
   status?: string;
   countryCode?: string;
 }
 
-interface GeoJsResult {
-  country_code?: string;
-}
-
-interface DnsJsonResponse {
-  Answer?: Array<{ type: number; data: string }>;
-}
-
-const FETCH_HEADERS = { 'User-Agent': 'sub-converter-worker/1.0' };
 const COUNTRY_CODE_CACHE = new Map<string, Promise<string | null>>();
 const DECORATION_CONCURRENCY = 8;
-
-function isIPAddress(host: string): boolean {
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-    return true;
-  }
-  return host.includes(':');
-}
 
 function countryCodeToEmoji(countryCode: string): string {
   const code = countryCode.toUpperCase();
@@ -42,115 +20,24 @@ function countryCodeToEmoji(countryCode: string): string {
   );
 }
 
-async function resolveHostToIP(host: string): Promise<string | null> {
-  if (isIPAddress(host)) {
-    return host;
-  }
-
-  for (const recordType of ['A', 'AAAA'] as const) {
-    try {
-      const response = await fetch(
-        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${recordType}`,
-        { headers: { Accept: 'application/dns-json', ...FETCH_HEADERS } }
-      );
-      if (!response.ok) {
-        continue;
-      }
-
-      const data = (await response.json()) as DnsJsonResponse;
-      const answer = data.Answer?.find(entry => entry.data);
-      if (answer?.data) {
-        return answer.data;
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-async function lookupViaIpApi(host: string): Promise<string | null> {
-  const response = await fetch(
-    `http://ip-api.com/json/${encodeURIComponent(host)}?fields=status,countryCode`,
-    { headers: FETCH_HEADERS }
-  );
-  if (!response.ok) {
-    return null;
-  }
-
-  const data = (await response.json()) as IpApiResult;
-  if (data.status !== 'success' || !data.countryCode) {
-    return null;
-  }
-  return data.countryCode;
-}
-
-async function lookupViaIpWhoIs(ip: string): Promise<string | null> {
-  const response = await fetch(
-    `https://ipwho.is/${encodeURIComponent(ip)}?fields=country_code,success,flag`,
-    { headers: FETCH_HEADERS }
-  );
-  if (!response.ok) {
-    return null;
-  }
-
-  const data = (await response.json()) as GeoIPResult;
-  if (data.success === false || !data.country_code) {
-    return null;
-  }
-  return data.country_code;
-}
-
-async function lookupViaGeoJs(ip: string): Promise<string | null> {
-  const response = await fetch(
-    `https://get.geojs.io/v1/ip/geo/${encodeURIComponent(ip)}.json`,
-    { headers: FETCH_HEADERS }
-  );
-  if (!response.ok) {
-    return null;
-  }
-
-  const data = (await response.json()) as GeoJsResult;
-  return data.country_code || null;
-}
-
 async function getCountryCode(server: string): Promise<string | null> {
   try {
-    try {
-      const countryCode = await lookupViaIpApi(server);
-      if (countryCode) {
-        return countryCode;
-      }
-    } catch {
-      // try next provider
-    }
-
-    const ip = await resolveHostToIP(server);
-    const target = ip || (isIPAddress(server) ? server : null);
-    if (!target) {
+    const response = await fetch(
+      `http://ip-api.com/json/${encodeURIComponent(server)}?fields=status,countryCode`,
+      { headers: { 'User-Agent': 'sub-converter-worker/1.0' } }
+    );
+    if (!response.ok) {
       return null;
     }
 
-    for (const lookup of [lookupViaIpWhoIs, lookupViaGeoJs]) {
-      try {
-        const countryCode = await lookup(target);
-        if (countryCode) {
-          return countryCode;
-        }
-      } catch {
-        continue;
-      }
+    const data = (await response.json()) as IpApiResult;
+    if (data.status !== 'success' || !data.countryCode) {
+      return null;
     }
+    return data.countryCode;
   } catch {
     return null;
   }
-
-  return null;
-}
-
-function getEmoji(countryCode: string): string {
-  return countryCodeToEmoji(countryCode);
 }
 
 function isDecoratedName(proxyName: string): boolean {
@@ -210,7 +97,7 @@ export async function decorateProxyNames(
   await runWithConcurrency(servers, DECORATION_CONCURRENCY, async server => {
     const countryCode = await getCountryCodeCached(server);
     if (countryCode) {
-      emojiByServer.set(server, getEmoji(countryCode));
+      emojiByServer.set(server, countryCodeToEmoji(countryCode));
     }
   });
 
