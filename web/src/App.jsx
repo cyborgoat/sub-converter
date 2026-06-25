@@ -1,4 +1,11 @@
 import { useMemo, useState } from 'react'
+import { Check, Copy } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
 
 const defaultProdWorkerUrl = 'https://sub.cyborgoat.com/'
 
@@ -44,6 +51,7 @@ function buildRequestUrl(subscriptionUrl, decorate) {
 function App() {
   const [subscriptionUrl, setSubscriptionUrl] = useState('')
   const [decorate, setDecorate] = useState(true)
+  const [copied, setCopied] = useState(false)
 
   const requestUrl = useMemo(() => {
     try {
@@ -53,59 +61,100 @@ function App() {
     }
   }, [decorate, subscriptionUrl])
 
+  async function handleCopy() {
+    if (!requestUrl) {
+      return
+    }
+
+    await navigator.clipboard.writeText(requestUrl)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
-    <main className="app-shell">
-      <section className="card">
-        <p className="eyebrow">sub-converter</p>
-        <h1>Convert a subscription URL to Clash YAML</h1>
-        <p className="lead">
-          Paste your subscription URL and the app will generate the final encoded
-          worker URL for downloading the Clash YAML file.
-        </p>
-
-        <section className="converter-form">
-          <div className="fixed-worker">
-            <span>Worker URL</span>
-            <code>{workerUrl}</code>
-          </div>
-
-          <label className="field">
-            <span>Subscription URL</span>
-            <textarea
-              rows="4"
-              value={subscriptionUrl}
-              onChange={(event) => setSubscriptionUrl(event.target.value)}
-              placeholder="https://example.com/subscription?id=123"
-              autoComplete="off"
-              spellCheck="false"
-            />
-          </label>
-
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={decorate}
-              onChange={(event) => setDecorate(event.target.checked)}
-            />
-            <span>Decorate proxy names with country flags</span>
-          </label>
-        </section>
-
-        <section className="result-panel">
-          <h2>Encoded worker request</h2>
-          <p>
-            Copy this URL and open it in a browser or use it directly in a
-            download command. Always use <code>https://</code> for production
-            worker links.
+    <main className="min-h-screen bg-background px-4 py-16 sm:py-24">
+      <div className="mx-auto max-w-xl space-y-8">
+        <header className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-widest text-primary">
+            sub-converter
           </p>
-          <textarea
-            rows="5"
-            readOnly
-            value={requestUrl}
-            placeholder="Enter a subscription URL to generate the final worker URL."
-          />
-        </section>
-      </section>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            Convert a subscription URL to Clash YAML
+          </h1>
+          <p className="text-base leading-relaxed text-muted-foreground">
+            Paste your subscription URL to generate the encoded worker link.
+          </p>
+        </header>
+
+        <Card className="shadow-none ring-border/60">
+          <CardContent className="space-y-6 pt-6">
+            <div className="space-y-2">
+              <Label htmlFor="worker-url">Worker URL</Label>
+              <div
+                id="worker-url"
+                className="rounded-lg border border-border bg-muted px-3 py-2.5 font-mono text-sm text-muted-foreground break-all"
+              >
+                {workerUrl}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subscription-url">Subscription URL</Label>
+              <Textarea
+                id="subscription-url"
+                rows={4}
+                value={subscriptionUrl}
+                onChange={(event) => setSubscriptionUrl(event.target.value)}
+                placeholder="https://example.com/subscription?id=123"
+                autoComplete="off"
+                spellCheck={false}
+                className="resize-y font-mono text-sm"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="decorate"
+                checked={decorate}
+                onCheckedChange={(checked) => setDecorate(checked === true)}
+              />
+              <Label htmlFor="decorate" className="font-normal leading-snug">
+                Decorate proxy names with country flags
+              </Label>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="request-url">Encoded worker request</Label>
+                <p className="text-sm text-muted-foreground">
+                  Copy this URL to download the Clash YAML file.
+                </p>
+              </div>
+
+              <Textarea
+                id="request-url"
+                rows={5}
+                readOnly
+                value={requestUrl}
+                placeholder="Enter a subscription URL to generate the final worker URL."
+                className="resize-y font-mono text-sm"
+              />
+
+              <Button
+                type="button"
+                onClick={handleCopy}
+                disabled={!requestUrl}
+                className="w-full sm:w-auto"
+              >
+                {copied ? <Check /> : <Copy />}
+                {copied ? 'Copied' : 'Copy URL'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </main>
   )
 }
