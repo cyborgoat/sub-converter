@@ -7,7 +7,6 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "build": "tsc",
-    "preview": "wrangler preview",
     "test": "npm run build && node --test tests/**/*.test.js"
   },
   "keywords": [],

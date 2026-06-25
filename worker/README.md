@@ -1,15 +1,15 @@
 # Sub-Converter Cloudflare Worker
 
-A Cloudflare Workers-based service that converts proxy subscription URLs to compact Clash-compatible YAML profiles.
+A Cloudflare Workers service that converts proxy subscription URLs to compact Clash-compatible YAML profiles.
 
 ## Features
 
-- ✅ Supports multiple proxy protocols: SS, VMess, SSR, Trojan, VLESS, SOCKS5, HTTP/HTTPS
-- ✅ Automatic Base64 decoding of subscription data
-- ✅ Converts to Clash YAML format using a compact shared policy template
-- ✅ Optional country flag emoji decoration for proxy names (geolocation lookup)
-- ✅ Graceful error handling and detailed error messages
-- ✅ Serverless deployment on Cloudflare Workers (free tier available)
+- Supports multiple proxy protocols: SS, VMess, SSR, Trojan, VLESS, SOCKS5, HTTP/HTTPS
+- Automatic Base64 decoding of subscription data
+- Converts to Clash YAML format using a compact shared policy template
+- Optional country flag emoji decoration for proxy names (geojs.io lookup)
+- Graceful error handling and descriptive error messages
+- Serverless deployment on Cloudflare Workers
 
 ## Setup
 
@@ -17,87 +17,79 @@ A Cloudflare Workers-based service that converts proxy subscription URLs to comp
 
 - Node.js 18+ and npm
 - Wrangler CLI (`npm install -g wrangler`)
-- Cloudflare account (free tier works)
+- Cloudflare account
 
 ### Installation
 
-1. Navigate to the worker directory:
 ```bash
 cd worker
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Build the TypeScript:
-```bash
 npm run build
 ```
 
 ## Development
 
-### Local Testing
-
 Start the local development server:
+
 ```bash
 npm run dev
 ```
 
-This starts a local Cloudflare Workers environment at `http://127.0.0.1:8787`.
+This runs at `http://127.0.0.1:8787`.
 
 ### Test with curl
 
 Convert a subscription URL to Clash YAML:
+
 ```bash
 curl "http://127.0.0.1:8787/?url=https://example.com/subscription" -o clash-profile.yaml
 ```
 
 Disable country flag decoration:
+
 ```bash
 curl "http://127.0.0.1:8787/?url=https://example.com/subscription&decorate=false" -o clash-profile.yaml
 ```
 
+Run tests:
+
+```bash
+npm test
+```
+
 ## Deployment
 
-### Deploy to Cloudflare Workers
+1. Authenticate with Cloudflare:
 
-1. Authenticate with your Cloudflare account:
 ```bash
 wrangler login
 ```
 
-2. Deploy the worker:
+2. Deploy:
+
 ```bash
 npm run deploy
 ```
 
-3. Your worker will be deployed to: `https://sub-converter-worker.<your-account>.workers.dev`
+Production is configured in `wrangler.toml` with a custom domain at `sub.cyborgoat.com`.
 
-### Configure Custom Domain (Optional)
+To use a different domain, update the `routes` block in `wrangler.toml`:
 
-Edit `wrangler.toml` to add your custom domain:
 ```toml
-[env.production]
 routes = [
-  { pattern = "sub.example.com/*", zone_name = "example.com" }
+  { pattern = "sub.example.com", custom_domain = true }
 ]
-```
-
-Then deploy to production:
-```bash
-npm run deploy -- --env production
 ```
 
 ## API Usage
 
 ### Endpoint
-```
+
+```text
 GET /?url=<subscription_url>[&decorate=true/false]
 ```
 
-The `url` query parameter should be percent-encoded by the client. The new `web/` app handles that automatically.
+The `url` query parameter should be percent-encoded by the client. The `web/` app handles that automatically.
 
 ### Parameters
 
@@ -109,6 +101,7 @@ The `url` query parameter should be percent-encoded by the client. The new `web/
 ### Response
 
 Returns a Clash-compatible YAML configuration file with:
+
 - Proxy list
 - Compact proxy groups
 - Compact routing rules
@@ -116,16 +109,14 @@ Returns a Clash-compatible YAML configuration file with:
 
 ### Examples
 
-**Basic usage:**
 ```bash
-curl "https://sub-converter-worker.yourname.workers.dev/?url=https%3A%2F%2Fexample.com%2Fsubscription" \
+curl "https://sub.cyborgoat.com/?url=https%3A%2F%2Fexample.com%2Fsubscription" \
   -H "Accept: application/yaml" \
   -o clash-profile.yaml
 ```
 
-**Without decoration:**
 ```bash
-curl "https://sub-converter-worker.yourname.workers.dev/?url=https%3A%2F%2Fexample.com%2Fsubscription&decorate=false" \
+curl "https://sub.cyborgoat.com/?url=https%3A%2F%2Fexample.com%2Fsubscription&decorate=false" \
   -o clash-profile.yaml
 ```
 
@@ -153,23 +144,20 @@ All errors include descriptive messages for debugging.
 2. Auto-detects and decodes Base64 encoded subscriptions
 3. Parses individual proxy entries (protocol-specific)
 4. Converts to Clash proxy format
-5. Optionally decorates proxy names with country flags (via ipwho.is API)
+5. Optionally decorates proxy names with country flags (via geojs.io)
 6. Expands `__ALL_PROXIES__` only inside `PROXY` and `AUTO`
 7. Renders compact Clash YAML configuration
 8. Returns with YAML content type and filename `clash-profile`
 
 ## Geolocation Decoration
 
-When `decorate=true` (default), the worker looks up each proxy server's IP to determine its country and adds the corresponding flag emoji:
-- 🇺🇸 US, 🇬🇧 GB, 🇯🇵 JP, 🇨🇳 CN, etc.
-- Fallback: 🌍 for unknown countries
-- Disabled: Pass `&decorate=false` to skip
+When `decorate=true` (default), the worker looks up each proxy server's IP to determine its country and adds the corresponding flag emoji. Unknown countries fall back to a globe emoji. Pass `&decorate=false` to skip.
 
-**Note:** Geolocation lookups add latency. If speed is critical, disable with `&decorate=false`.
+Geolocation lookups add latency. Disable them if speed is more important than decorated names.
 
 ## Compact Template
 
-The worker now uses a deliberately compact template for better performance on large subscriptions. It keeps only:
+The worker uses a deliberately compact template for better performance on large subscriptions. It keeps only:
 
 - `PROXY`
 - `AUTO`
@@ -177,13 +165,15 @@ The worker now uses a deliberately compact template for better performance on la
 - `REJECT_GROUP`
 - `FINAL`
 
-The rule set is also intentionally minimal and focuses on private/local traffic plus a final fallback route.
+The rule set is intentionally minimal and focuses on private/local traffic plus a final fallback route.
 
 ## Architecture
 
-```
+```text
 src/
 ├── index.ts              Main Worker handler
+├── config/
+│   └── policy-template.ts Bundled compact policy template
 ├── services/
 │   └── subscription.ts   Fetch, decode, split entries
 ├── parsers/
@@ -205,12 +195,11 @@ src/
 
 ## Building
 
-The project uses TypeScript compiled to JavaScript for Workers.
-
 ```bash
 npm run build      # Compile TypeScript to dist/
 npm run dev        # Local development server
 npm run deploy     # Deploy to Cloudflare Workers
+npm test           # Build and run tests
 ```
 
 ## License
@@ -221,6 +210,5 @@ See LICENSE file in parent directory.
 
 - Worker execution timeout: 15 seconds (includes geolocation lookups)
 - Maximum payload size: Standard Cloudflare Workers limits
-- Free tier: 100,000 requests/day included
-- Geolocation powered by ipwho.is (free, no auth required)
-- YAML rendering uses custom renderer (no external dependencies)
+- Geolocation powered by geojs.io (free, no auth required)
+- YAML rendering uses a custom renderer (no external dependencies)

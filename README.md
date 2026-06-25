@@ -1,13 +1,13 @@
 # sub-converter
 
-Convert proxy subscriptions into compact Clash-compatible YAML with a TypeScript Cloudflare Worker and a small Vite web UI.
+Convert proxy subscriptions into compact Clash-compatible YAML with a TypeScript Cloudflare Worker and a minimal Vite web UI.
 
 Supported protocols: `ss`, `vmess`, `ssr`, `trojan`, `vless`, `socks`, `http`, `https`
 
 ## Projects
 
 - `worker/`: Cloudflare Worker that fetches a subscription, decodes it, converts entries to Clash proxies, applies the compact policy template, optionally decorates proxy names with country flags, and returns a downloadable Clash profile named `clash-profile`
-- `web/`: React app that builds the worker request URL and uses the local worker service automatically in dev mode
+- `web/`: React app with Tailwind CSS and shadcn/ui that builds the worker request URL and uses the local worker service automatically in dev mode
 - `clash_policy_template.yaml`: canonical compact policy template used to build `proxy-groups` and `rules`
 
 ## Worker
@@ -20,6 +20,8 @@ npm run dev
 ```
 
 Local dev runs at `http://127.0.0.1:8787`.
+
+Production endpoint: `https://sub.cyborgoat.com/`
 
 Request shape:
 
@@ -34,6 +36,8 @@ The response is a Clash YAML profile with:
 - compact routing `rules`
 - `subscription-info` metadata including source type, source encoding, and node count
 - `Content-Disposition: attachment; filename=clash-profile`
+
+See [`worker/README.md`](worker/README.md) for deployment and API details.
 
 ## Compact Profile Shape
 
@@ -66,7 +70,9 @@ Worker endpoint resolution order:
 
 1. `VITE_WORKER_URL` if set
 2. `http://127.0.0.1:8787/` in Vite dev mode
-3. `https://sub-converter-worker.cyborgoat.workers.dev/` in production
+3. `https://sub.cyborgoat.com/` in production
+
+See [`web/README.md`](web/README.md) for build and GitHub Pages deployment details.
 
 ## Policy Template
 
@@ -77,7 +83,7 @@ The worker bundles a generated copy of this template at `worker/src/config/polic
 ## Notes
 
 - The worker is the source of truth for conversion; the old Python package has been removed.
-- Name decoration performs geo-IP lookups and can be disabled with `decorate=false`.
+- Name decoration performs geo-IP lookups via geojs.io and can be disabled with `decorate=false`.
 - The worker has been optimized to reduce per-request object churn and YAML output size.
 - If `npm run build` for `web` resolves the wrong Node version on your machine, run Vite with your intended Node runtime explicitly.
 

@@ -29,9 +29,3 @@ export interface ClashConfig {
   rules: string[];
   'subscription-info'?: any;
 }
-
-export interface ParsedQueryParams {
-  url: string;
-  decorate: boolean;
-  timeout: number;
-}

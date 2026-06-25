@@ -9,17 +9,6 @@ export function padBase64(str: string): string {
   return trimmed + '='.repeat(4 - remainder);
 }
 
-export function isValidBase64(str: string): boolean {
-  try {
-    const padded = padBase64(str);
-    if (!/^[A-Za-z0-9+/=]+$/.test(padded)) return false;
-    atob(padded);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function tryDecodeBase64(raw: string): string | null {
   if (!raw || !raw.trim()) return '';
 
