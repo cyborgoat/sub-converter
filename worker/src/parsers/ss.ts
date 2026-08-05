@@ -2,9 +2,9 @@
  * ShadowSocks parser
  */
 
-import { ProxyNode } from '../utils/types';
-import { padBase64 } from '../services/subscription';
-import { cleanQuery, decodeName } from '../utils/url';
+import { ProxyNode } from '../utils/types.js';
+import { padBase64 } from '../services/subscription.js';
+import { cleanQuery, decodeName } from '../utils/url.js';
 
 export function parseSS(entry: string): ProxyNode {
   let body = entry.slice('ss://'.length);

@@ -2,11 +2,11 @@
  * Entry parser dispatcher
  */
 
-import { ProxyNode } from '../utils/types';
-import { parseSS } from './ss';
-import { parseVMess } from './vmess';
-import { parseSSR } from './ssr';
-import { parseTrojan, parseVless, parseSocks, parseHttp } from './generic';
+import { ProxyNode } from '../utils/types.js';
+import { parseSS } from './ss.js';
+import { parseVMess } from './vmess.js';
+import { parseSSR } from './ssr.js';
+import { parseTrojan, parseVless, parseSocks, parseHttp } from './generic.js';
 
 export function parseEntry(entry: string): ProxyNode {
   const trimmed = entry.trim();

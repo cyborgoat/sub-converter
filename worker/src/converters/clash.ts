@@ -2,9 +2,9 @@
  * Convert parsed proxy nodes to Clash config format
  */
 
-import { ProxyNode, ClashProxy, ClashConfig } from '../utils/types';
-import { parseEntry } from '../parsers/index';
-import { ALL_PROXIES_PLACEHOLDER, POLICY_TEMPLATE } from '../config/policy-template';
+import { ProxyNode, ClashProxy, ClashConfig } from '../utils/types.js';
+import { parseEntry } from '../parsers/index.js';
+import { ALL_PROXIES_PLACEHOLDER, POLICY_TEMPLATE } from '../config/policy-template.js';
 
 const UNIQUE_POLICY_RULES = Array.from(new Set(POLICY_TEMPLATE.rules));
 const COMPILED_POLICY_GROUPS = POLICY_TEMPLATE['proxy-groups'].map(group => {
@@ -44,6 +44,75 @@ function parseBool(value: any): boolean {
     return value.toLowerCase() === 'true' || value === '1';
   }
   return false;
+}
+
+function firstQueryValue(
+  query: Record<string, string>,
+  ...keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const value = query[key];
+    if (value !== undefined && value !== '') {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function splitCommaSeparated(value: string | undefined): string[] | undefined {
+  if (!value) return undefined;
+  const values = value.split(',').map(item => item.trim()).filter(Boolean);
+  return values.length > 0 ? values : undefined;
+}
+
+function addVlessTransportOptions(proxy: ClashProxy, query: Record<string, string>): void {
+  const network = firstQueryValue(query, 'type', 'network') || 'tcp';
+  proxy.network = network;
+
+  const path = firstQueryValue(query, 'path');
+  const host = firstQueryValue(query, 'host');
+
+  if (network === 'ws') {
+    const wsOpts: Record<string, any> = {};
+    if (path) wsOpts.path = path;
+    if (host) wsOpts.headers = { Host: host };
+
+    const earlyData = firstQueryValue(query, 'ed');
+    if (earlyData && Number.isFinite(Number(earlyData))) {
+      wsOpts['max-early-data'] = Number(earlyData);
+    }
+    const earlyDataHeader = firstQueryValue(query, 'eh');
+    if (earlyDataHeader) wsOpts['early-data-header-name'] = earlyDataHeader;
+
+    if (Object.keys(wsOpts).length > 0) proxy['ws-opts'] = wsOpts;
+    return;
+  }
+
+  if (network === 'grpc') {
+    const serviceName = firstQueryValue(query, 'serviceName', 'service-name');
+    if (serviceName) {
+      proxy['grpc-opts'] = { 'grpc-service-name': serviceName };
+    }
+    return;
+  }
+
+  if (network === 'xhttp') {
+    const xhttpOpts: Record<string, any> = {};
+    if (path) xhttpOpts.path = path;
+    if (host) xhttpOpts.host = host;
+    const mode = firstQueryValue(query, 'mode');
+    if (mode) xhttpOpts.mode = mode;
+    if (Object.keys(xhttpOpts).length > 0) proxy['xhttp-opts'] = xhttpOpts;
+    return;
+  }
+
+  if (network === 'h2') {
+    const h2Opts: Record<string, any> = {};
+    const hosts = splitCommaSeparated(host);
+    if (hosts) h2Opts.host = hosts;
+    if (path) h2Opts.path = path;
+    if (Object.keys(h2Opts).length > 0) proxy['h2-opts'] = h2Opts;
+  }
 }
 
 function expandPolicyGroups(proxyNames: string[]) {
@@ -129,6 +198,18 @@ function clashProxyFromNode(node: ProxyNode, index: number): ClashProxy {
   }
 
   if (scheme === 'vless') {
+    const query = node.query || {};
+    const security = String(query.security || '').toLowerCase();
+    const usesReality = security === 'reality';
+    const usesTls = security === 'tls' || usesReality;
+
+    if (!node.username) {
+      throw new Error('VLESS node is missing its UUID');
+    }
+    if (usesReality && !firstQueryValue(query, 'pbk', 'public-key')) {
+      throw new Error('VLESS Reality node is missing its public key');
+    }
+
     const proxy: ClashProxy = {
       name,
       type: 'vless',
@@ -136,14 +217,42 @@ function clashProxyFromNode(node: ProxyNode, index: number): ClashProxy {
       port: parseInt(String(node.port), 10),
       uuid: node.username,
       udp: true,
-      tls: parseBool(node.query?.security === 'tls'),
+      tls: usesTls,
     };
-    if (node.query?.flow) {
-      proxy.flow = node.query.flow;
+
+    const flow = firstQueryValue(query, 'flow');
+    if (flow) proxy.flow = flow;
+
+    const servername = firstQueryValue(query, 'sni', 'servername', 'serverName');
+    if (servername) proxy.servername = servername;
+
+    const fingerprint = firstQueryValue(query, 'fp', 'client-fingerprint');
+    if (fingerprint && fingerprint !== 'none') {
+      proxy['client-fingerprint'] = fingerprint;
     }
-    if (node.query?.sni) {
-      proxy.servername = node.query.sni;
+
+    const alpn = splitCommaSeparated(firstQueryValue(query, 'alpn'));
+    if (alpn) proxy.alpn = alpn;
+
+    const packetEncoding = firstQueryValue(query, 'packetEncoding', 'packet-encoding');
+    if (packetEncoding) proxy['packet-encoding'] = packetEncoding;
+
+    const encryption = firstQueryValue(query, 'encryption');
+    if (encryption) proxy.encryption = encryption;
+
+    if (query.allowInsecure !== undefined) {
+      proxy['skip-cert-verify'] = parseBool(query.allowInsecure);
     }
+
+    if (usesReality) {
+      const publicKey = firstQueryValue(query, 'pbk', 'public-key') as string;
+      const realityOpts: Record<string, any> = { 'public-key': publicKey };
+      const shortId = query.sid ?? query['short-id'];
+      if (shortId !== undefined) realityOpts['short-id'] = shortId;
+      proxy['reality-opts'] = realityOpts;
+    }
+
+    addVlessTransportOptions(proxy, query);
     return proxy;
   }
 
@@ -201,10 +310,15 @@ export function buildClashConfig(
   sourceType: string,
   encoding: string,
   entries: string[]
-): { config: ClashConfig; skipped: number } {
+): {
+  config: ClashConfig;
+  skipped: number;
+  skippedDetails: Array<{ index: number; scheme: string; reason: string }>;
+} {
   const proxies: ClashProxy[] = [];
   const proxyNames: string[] = [];
   let skipped = 0;
+  const skippedDetails: Array<{ index: number; scheme: string; reason: string }> = [];
 
   for (let index = 0; index < entries.length; index++) {
     try {
@@ -212,8 +326,14 @@ export function buildClashConfig(
       const proxy = clashProxyFromNode(node, index + 1);
       proxies.push(proxy);
       proxyNames.push(proxy.name);
-    } catch {
+    } catch (error) {
       skipped++;
+      const schemeMatch = entries[index].match(/^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//);
+      skippedDetails.push({
+        index: index + 1,
+        scheme: schemeMatch?.[1]?.toLowerCase() || 'unknown',
+        reason: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -234,8 +354,9 @@ export function buildClashConfig(
       'source-type': sourceType,
       'source-encoding': encoding,
       'node-count': proxies.length,
+      'skipped-node-count': skipped,
     },
   };
 
-  return { config, skipped };
+  return { config, skipped, skippedDetails };
 }

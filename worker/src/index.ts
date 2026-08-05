@@ -2,11 +2,11 @@
  * Main Cloudflare Worker handler
  */
 
-import { fetchSubscription, subscriptionText, splitEntries } from './services/subscription';
-import { buildClashConfig } from './converters/clash';
-import { renderYaml } from './renderers/yaml';
-import { decorateProxyNames } from './decorators/flag';
-import { reconstructSubscriptionUrl } from './utils/url';
+import { fetchSubscription, subscriptionText, splitEntries } from './services/subscription.js';
+import { buildClashConfig } from './converters/clash.js';
+import { renderYaml } from './renderers/yaml.js';
+import { decorateProxyNames } from './decorators/flag.js';
+import { reconstructSubscriptionUrl } from './utils/url.js';
 
 function httpsRedirect(request: Request): Response | null {
   const proto = request.headers.get('x-forwarded-proto');
@@ -55,7 +55,15 @@ async function handleRequest(request: Request): Promise<Response> {
     }
 
     // Build clash config
-    const { config, skipped } = buildClashConfig(subscriptionUrl, sourceType, encoding, entries);
+    const { config, skipped, skippedDetails } = buildClashConfig(
+      subscriptionUrl,
+      sourceType,
+      encoding,
+      entries
+    );
+    if (skippedDetails.length > 0) {
+      console.warn('Skipped proxy entries:', JSON.stringify(skippedDetails));
+    }
     if (config.proxies.length === 0) {
       return new Response(
         `No supported proxy entries were converted (${skipped} skipped).`,

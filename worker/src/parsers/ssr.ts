@@ -2,9 +2,9 @@
  * ShadowSocksR parser
  */
 
-import { ProxyNode } from '../utils/types';
-import { padBase64 } from '../services/subscription';
-import { cleanQuery } from '../utils/url';
+import { ProxyNode } from '../utils/types.js';
+import { padBase64 } from '../services/subscription.js';
+import { cleanQuery } from '../utils/url.js';
 
 export function parseSSR(entry: string): ProxyNode {
   if (!entry.startsWith('ssr://')) {

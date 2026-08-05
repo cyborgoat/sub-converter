@@ -2,7 +2,7 @@
  * VMess parser
  */
 
-import { ProxyNode } from '../utils/types';
+import { ProxyNode } from '../utils/types.js';
 
 export function parseVMess(entry: string): ProxyNode {
   if (!entry.startsWith('vmess://')) {

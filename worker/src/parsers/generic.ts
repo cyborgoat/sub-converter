@@ -2,8 +2,8 @@
  * Generic proxy parser for trojan, vless, socks, http/https
  */
 
-import { ProxyNode } from '../utils/types';
-import { cleanQuery, decodeName, parseURL } from '../utils/url';
+import { ProxyNode } from '../utils/types.js';
+import { cleanQuery, decodeName, parseURL } from '../utils/url.js';
 
 function parseNetlocUrl(entry: string): ProxyNode {
   const url = parseURL(entry);
