@@ -2,18 +2,12 @@
   "proxy-groups": [
     {
       "name": "PROXY",
-      "proxies": [
-        "AUTO",
-        "DIRECT",
-        "__ALL_PROXIES__"
-      ],
+      "proxies": ["AUTO", "DIRECT", "__ALL_PROXIES__"],
       "type": "select"
     },
     {
       "name": "AUTO",
-      "proxies": [
-        "__ALL_PROXIES__"
-      ],
+      "proxies": ["__ALL_PROXIES__"],
       "type": "url-test",
       "url": "http://www.gstatic.com/generate_204",
       "interval": 300,
@@ -21,28 +15,17 @@
     },
     {
       "name": "DIRECT_GROUP",
-      "proxies": [
-        "DIRECT",
-        "PROXY",
-        "AUTO"
-      ],
+      "proxies": ["DIRECT", "PROXY", "AUTO"],
       "type": "select"
     },
     {
       "name": "REJECT_GROUP",
-      "proxies": [
-        "REJECT",
-        "DIRECT"
-      ],
+      "proxies": ["REJECT", "DIRECT"],
       "type": "select"
     },
     {
       "name": "FINAL",
-      "proxies": [
-        "PROXY",
-        "DIRECT_GROUP",
-        "AUTO"
-      ],
+      "proxies": ["PROXY", "DIRECT_GROUP", "AUTO"],
       "type": "select"
     }
   ],
@@ -84,6 +67,12 @@
     "DOMAIN-SUFFIX,zte.home,DIRECT_GROUP",
     "DOMAIN-SUFFIX,tplogin.cn,DIRECT_GROUP",
     "DOMAIN-SUFFIX,wifi.cmcc,DIRECT_GROUP",
+    "DOMAIN-SUFFIX,music.apple.com,PROXY",
+    "DOMAIN-SUFFIX,audio-ssl.itunes.apple.com,PROXY",
+    "DOMAIN-SUFFIX,aod.itunes.apple.com,PROXY",
+    "DOMAIN-SUFFIX,aod-ssl.itunes.apple.com,PROXY",
+    "DOMAIN-SUFFIX,mzstatic.com,PROXY",
+    "DOMAIN-SUFFIX,itunes.apple.com,PROXY",
     "GEOIP,CN,DIRECT_GROUP",
     "MATCH,FINAL"
   ]

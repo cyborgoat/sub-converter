@@ -1,3 +1,15 @@
-export const ALL_PROXIES_PLACEHOLDER = "__ALL_PROXIES__" as const;
+/**
+ * Compact Clash policy template (proxy-groups + rules).
+ *
+ * The single source of truth is `policy-template.json` in this directory.
+ * It is valid JSON (the "JSON-compatible YAML" referenced in the README) and is
+ * imported directly here so the data is never hand-written twice. The bundler
+ * (esbuild via wrangler) and `tsc` both inline the JSON, so the Worker still has
+ * no filesystem dependency at runtime.
+ */
 
-export const POLICY_TEMPLATE = {"proxy-groups":[{"name":"PROXY","proxies":["AUTO","DIRECT","__ALL_PROXIES__"],"type":"select"},{"name":"AUTO","proxies":["__ALL_PROXIES__"],"type":"url-test","url":"http://www.gstatic.com/generate_204","interval":300,"tolerance":50},{"name":"DIRECT_GROUP","proxies":["DIRECT","PROXY","AUTO"],"type":"select"},{"name":"REJECT_GROUP","proxies":["REJECT","DIRECT"],"type":"select"},{"name":"FINAL","proxies":["PROXY","DIRECT_GROUP","AUTO"],"type":"select"}],"rules":["DOMAIN-SUFFIX,acl4.ssr,DIRECT_GROUP","DOMAIN-SUFFIX,ip6-localhost,DIRECT_GROUP","DOMAIN-SUFFIX,ip6-loopback,DIRECT_GROUP","DOMAIN-SUFFIX,internal,DIRECT_GROUP","DOMAIN-SUFFIX,lan,DIRECT_GROUP","DOMAIN-SUFFIX,local,DIRECT_GROUP","DOMAIN-SUFFIX,localhost,DIRECT_GROUP","IP-CIDR,0.0.0.0/8,DIRECT_GROUP,no-resolve","IP-CIDR,10.0.0.0/8,DIRECT_GROUP,no-resolve","IP-CIDR,100.64.0.0/10,DIRECT_GROUP,no-resolve","IP-CIDR,127.0.0.0/8,DIRECT_GROUP,no-resolve","IP-CIDR,169.254.0.0/16,DIRECT_GROUP,no-resolve","IP-CIDR,172.16.0.0/12,DIRECT_GROUP,no-resolve","IP-CIDR,192.168.0.0/16,DIRECT_GROUP,no-resolve","IP-CIDR,198.18.0.0/16,DIRECT_GROUP,no-resolve","IP-CIDR,224.0.0.0/4,DIRECT_GROUP,no-resolve","IP-CIDR6,::1/128,DIRECT_GROUP,no-resolve","IP-CIDR6,fc00::/7,DIRECT_GROUP,no-resolve","IP-CIDR6,fe80::/10,DIRECT_GROUP,no-resolve","IP-CIDR6,fd00::/8,DIRECT_GROUP,no-resolve","DOMAIN,instant.arubanetworks.com,DIRECT_GROUP","DOMAIN,setmeup.arubanetworks.com,DIRECT_GROUP","DOMAIN,router.asus.com,DIRECT_GROUP","DOMAIN,www.asusrouter.com,DIRECT_GROUP","DOMAIN-SUFFIX,hiwifi.com,DIRECT_GROUP","DOMAIN-SUFFIX,leike.cc,DIRECT_GROUP","DOMAIN-SUFFIX,miwifi.com,DIRECT_GROUP","DOMAIN-SUFFIX,my.router,DIRECT_GROUP","DOMAIN-SUFFIX,p.to,DIRECT_GROUP","DOMAIN-SUFFIX,peiluyou.com,DIRECT_GROUP","DOMAIN-SUFFIX,phicomm.me,DIRECT_GROUP","DOMAIN-SUFFIX,router.ctc,DIRECT_GROUP","DOMAIN-SUFFIX,routerlogin.com,DIRECT_GROUP","DOMAIN-SUFFIX,tendawifi.com,DIRECT_GROUP","DOMAIN-SUFFIX,zte.home,DIRECT_GROUP","DOMAIN-SUFFIX,tplogin.cn,DIRECT_GROUP","DOMAIN-SUFFIX,wifi.cmcc,DIRECT_GROUP","GEOIP,CN,DIRECT_GROUP","MATCH,FINAL"]} as const;
+import policyTemplate from './policy-template.json' with { type: 'json' };
+
+export const ALL_PROXIES_PLACEHOLDER = '__ALL_PROXIES__' as const;
+
+export const POLICY_TEMPLATE = policyTemplate;

@@ -8,7 +8,7 @@ Supported protocols: `ss`, `vmess`, `ssr`, `trojan`, `vless`, `socks`, `http`, `
 
 - `worker/`: Cloudflare Worker that fetches a subscription, decodes it, converts entries to Clash proxies, applies the compact policy template, optionally decorates proxy names with country flags, and returns a downloadable Clash profile named `clash-profile`
 - `web/`: React app with Tailwind CSS and shadcn/ui that builds the worker request URL and uses the local worker service automatically in dev mode
-- `clash_policy_template.yaml`: canonical compact policy template used to build `proxy-groups` and `rules`
+- `worker/src/config/policy-template.json`: canonical compact policy template used to build `proxy-groups` and `rules`
 
 ## Worker
 
@@ -76,9 +76,9 @@ See [`web/README.md`](web/README.md) for build and GitHub Pages deployment detai
 
 ## Policy Template
 
-`clash_policy_template.yaml` is JSON-compatible YAML. Only the `PROXY` and `AUTO` groups expand the `__ALL_PROXIES__` placeholder into converted proxy names.
+`worker/src/config/policy-template.json` holds the template. Only the `PROXY` and `AUTO` groups expand the `__ALL_PROXIES__` placeholder into converted proxy names.
 
-The worker bundles a generated copy of this template at `worker/src/config/policy-template.ts` so Cloudflare Workers do not depend on filesystem reads at runtime.
+`worker/src/config/policy-template.ts` imports that JSON directly (`import ... with { type: 'json' }`) and re-exports it as `POLICY_TEMPLATE`, so the data is never hand-written twice. Both `tsc` and the wrangler/esbuild bundler inline the JSON, so the Worker has no filesystem dependency at runtime. Edit the `.json` file to change routing; nothing else needs updating.
 
 ## Notes
 

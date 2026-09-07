@@ -173,7 +173,8 @@ The rule set is intentionally minimal and focuses on private/local traffic plus 
 src/
 ├── index.ts              Main Worker handler
 ├── config/
-│   └── policy-template.ts Bundled compact policy template
+│   ├── policy-template.json Canonical proxy-groups + rules (edit this)
+│   └── policy-template.ts   Imports the JSON and re-exports POLICY_TEMPLATE
 ├── services/
 │   └── subscription.ts   Fetch, decode, split entries
 ├── parsers/
